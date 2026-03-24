@@ -329,8 +329,10 @@ def main():
     col1, col2 = st.columns([4,1])
 
     with col1:
-        user_input = st.text_input("🔍 Search company (or pick from list)")
-        chosen = st.selectbox("Or select from list", list(INDIAN_STOCKS.keys()))
+        chosen = st.selectbox(
+    "🔍 Search or select company",
+    list(INDIAN_STOCKS.keys())
+)
 
     with col2:
         st.markdown("<br>", unsafe_allow_html=True)
@@ -339,19 +341,7 @@ def main():
     if not go:
         return
 
-    selected_company = None
-
-    # Priority: typed input > dropdown
-    if user_input:
-        for name in INDIAN_STOCKS:
-            if user_input.lower() in name.lower():
-                selected_company = name
-                break
-
-    if not selected_company:
-        selected_company = chosen
-
-    ticker = INDIAN_STOCKS[selected_company]
+    ticker = INDIAN_STOCKS[chosen]
 
     with st.spinner("Fetching live market data…"):
         hist, info = fetch_yahoo(ticker)
