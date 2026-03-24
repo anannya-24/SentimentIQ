@@ -363,7 +363,6 @@ def main():
         c3.metric("📉 52W Low", f"₹{w52l:,.2f}")
         c4.metric("🏦 Exchange", exch)
 st.markdown("### 📊 5-Year Price Trend")
-
 if hist and "close" in hist and "dates" in hist:
     try:
         prices = hist.get("close", [])
