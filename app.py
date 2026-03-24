@@ -364,12 +364,14 @@ def main():
         c4.metric("🏦 Exchange", exch)
 
     # ── VERDICT ──
+    conf_display = round(conf, 2)
+    
     st.markdown(f"""
 ## {v_emoji} {verdict}
 ### Confidence: {conf:.2f}/100
 """)
 
-    st.progress(conf/100)
+    st.progress(conf_display/100)
 
     colA, colB = st.columns(2)
 
