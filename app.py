@@ -383,6 +383,7 @@ def main():
             st.write("-", r)
 
            st.markdown("<br>", unsafe_allow_html=True)
+   
     # ── TECHNICALS ──
     if tech:
         st.markdown("### 📈 Technical Indicators")
