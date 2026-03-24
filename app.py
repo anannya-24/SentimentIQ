@@ -316,7 +316,8 @@ def main():
         st.markdown("---")
 
     load_css(dark)
-    pos_c="#10B981"; neg_c="#EF4444"; neu_c="#F59E0B"
+    bp="#0A0E1A" if dark else "#F0F4FF"
+    pos_c="#10B981"; neg_c="#EF4444"; neu_c="#F59E0B"; acc="#00D4FF"
 
     st.markdown("""
     <div class="top-bar">
@@ -329,9 +330,9 @@ def main():
 
     with col1:
         chosen = st.selectbox(
-            "🔍 Search or select company",
-            list(INDIAN_STOCKS.keys())
-        )
+    "🔍 Search or select company",
+    list(INDIAN_STOCKS.keys())
+)
 
     with col2:
         st.markdown("<br>", unsafe_allow_html=True)
@@ -342,17 +343,9 @@ def main():
 
     ticker = INDIAN_STOCKS[chosen]
 
-    # Tabs
-    tab1, tab2, tab3, tab4 = st.tabs([
-        "📊 Overview", 
-        "📰 News", 
-        "📈 Technicals", 
-        "🤖 AI Verdict"
-    ])
-
-    # Fetch data once
-    with st.spinner("Fetching data..."):
+    with st.spinner("Fetching live market data…"):
         hist, info = fetch_yahoo(ticker)
+    with st.spinner("Reading latest news…"):
         articles = fetch_news(chosen, ticker)
 
     tech = calc_technicals(hist) if hist else {}
@@ -362,71 +355,149 @@ def main():
     avg_sent = sum(a["score"] for a in articles)/len(articles) if articles else 0
     verdict, v_color, v_emoji, conf, reasons, risks = investment_signal(avg_sent, tech, articles)
 
-    # ── TAB 1: OVERVIEW ──
-    with tab1:
-        st.markdown('<div class="sec"><div class="dot"></div><h3>Live Market Data</h3></div>', unsafe_allow_html=True)
+    # ── Price strip ──────────────────────────────────────────────────────
+    st.markdown('<div class="sec"><div class="dot"></div><h3>Live Market Data</h3></div>', unsafe_allow_html=True)
+    if info:
+        cp   = info.get("currentPrice", 0) or 0
+        prev = info.get("previousClose", cp) or cp
+        chg  = cp - prev
+        chg_pct = (chg/prev*100) if prev else 0
+        dc   = "pos" if chg>=0 else "neg"
+        sign = "+" if chg>=0 else ""
+        w52h = info.get("fiftyTwoWeekHigh",0) or 0
+        w52l = info.get("fiftyTwoWeekLow",0) or 0
+        exch = info.get("exchange","NSE")
 
-        if info:
-            cp = info.get("currentPrice", 0)
-            prev = info.get("previousClose", cp)
-            chg = cp - prev
-            chg_pct = (chg/prev*100) if prev else 0
-            dc = "pos" if chg>=0 else "neg"
-            sign = "+" if chg>=0 else ""
+        c1,c2,c3,c4 = st.columns(4)
+        def mcard(col, label, val, delta="", dc_=""):
+            delta_html = f'<div class="mdelta {dc_}">{delta}</div>' if delta else ""
+            col.markdown(f'<div class="card"><div class="mlabel">{label}</div>'
+                         f'<div class="mval">{val}</div>{delta_html}</div>', unsafe_allow_html=True)
+        mcard(c1,"Current Price",f"₹{cp:,.2f}",f"{sign}{chg:.2f} ({sign}{chg_pct:.2f}%)",dc)
+        mcard(c2,"52W High",f"₹{w52h:,.2f}")
+        mcard(c3,"52W Low", f"₹{w52l:,.2f}")
+        mcard(c4,"Exchange", exch)
+    else:
+        st.warning("⚠️ Could not fetch live price. Yahoo Finance may be rate-limiting — wait 30 sec and retry.")
 
-            c1,c2,c3,c4 = st.columns(4)
+    # ── Sparkline chart ──────────────────────────────────────────────────
+    if hist:
+        closes = [c for c in hist["close"] if c is not None]
+        chg_overall = closes[-1]-closes[0] if len(closes)>=2 else 0
+        chart_color = pos_c if chg_overall>=0 else neg_c
+        st.markdown('<div class="sec"><div class="dot"></div><h3>6-Month Price Trend</h3></div>', unsafe_allow_html=True)
+        svg = sparkline_svg(closes, chart_color)
+        st.markdown(f'<div class="card">{svg}</div>', unsafe_allow_html=True)
 
-            def mcard(col, label, val, delta="", dc_=""):
-                delta_html = f'<div class="mdelta {dc_}">{delta}</div>' if delta else ""
-                col.markdown(f'<div class="card"><div class="mlabel">{label}</div>'
-                             f'<div class="mval">{val}</div>{delta_html}</div>', unsafe_allow_html=True)
+        # show first/last date labels
+        dates = hist.get("dates",[])
+        if dates:
+            d1,d2 = st.columns(2)
+            d1.caption(f"📅 {dates[0]}")
+            d2.caption(f"📅 {dates[-1]}" if len(dates)>1 else "")
 
-            mcard(c1,"Current Price",f"₹{cp:,.2f}",f"{sign}{chg:.2f} ({sign}{chg_pct:.2f}%)",dc)
-            mcard(c2,"52W High",f"₹{info.get('fiftyTwoWeekHigh',0):,.2f}")
-            mcard(c3,"52W Low", f"₹{info.get('fiftyTwoWeekLow',0):,.2f}")
-            mcard(c4,"Exchange", info.get("exchange","NSE"))
+    # ── Technical indicators ─────────────────────────────────────────────
+    if tech:
+        st.markdown('<div class="sec"><div class="dot"></div><h3>Technical Indicators</h3></div>', unsafe_allow_html=True)
+        t1,t2,t3,t4 = st.columns(4)
+        rsi = tech.get("rsi",50)
+        rsi_lbl = "🟢 Oversold" if rsi<30 else ("🔴 Overbought" if rsi>70 else "⚪ Neutral")
+        macd = tech.get("macd",0)
+        macd_lbl = "↑ Bullish" if macd>0 else "↓ Bearish"
+        vr = tech.get("vol_ratio",1)
+        vr_lbl = "🔥 High" if vr>1.5 else ("📉 Low" if vr<0.7 else "Normal")
+        def tcard(col, label, val, sub):
+            col.markdown(f'<div class="card"><div class="mlabel">{label}</div>'
+                         f'<div class="mval">{val}</div><div class="mdelta neu">{sub}</div></div>',
+                         unsafe_allow_html=True)
+        tcard(t1,"RSI (14)", rsi, rsi_lbl)
+        tcard(t2,"MACD", macd, macd_lbl)
+        tcard(t3,"MA 20-Day", f"₹{tech.get('ma20','—')}", "Moving avg")
+        tcard(t4,"Vol Ratio", f"{vr}x", vr_lbl)
 
-        if hist:
-            closes = [c for c in hist["close"] if c is not None]
-            chart_color = pos_c if closes[-1] >= closes[0] else neg_c
-            st.markdown(sparkline_svg(closes, chart_color), unsafe_allow_html=True)
+    # ── Sentiment ────────────────────────────────────────────────────────
+    st.markdown('<div class="sec"><div class="dot"></div><h3>News Sentiment Analysis</h3></div>', unsafe_allow_html=True)
+    s1,s2 = st.columns(2)
+    sent_pct = int((avg_sent+1)/2*100)
+    sent_lbl = "POSITIVE" if avg_sent>0.05 else ("NEGATIVE" if avg_sent<-0.05 else "NEUTRAL")
+    sent_cls  = "pos" if avg_sent>0.05 else ("neg" if avg_sent<-0.05 else "neu")
+    total_arts = len(articles)
+    with s1:
+        st.markdown(f"""
+        <div class="card" style="text-align:center;padding:24px;">
+            <div class="mlabel">Overall Sentiment</div>
+            <div style="font-size:3rem;font-weight:800;font-family:'JetBrains Mono',monospace;
+                margin:10px 0;" class="{sent_cls}">{sent_pct}%</div>
+            <div class="bar-track"><div class="bar-fill" style="width:{sent_pct}%"></div></div>
+            <div class="mdelta {sent_cls}" style="margin-top:8px;font-size:1rem;">{sent_lbl}</div>
+            <div style="color:#94A3B8;font-size:0.78rem;margin-top:6px;">
+                Based on {total_arts} articles</div>
+        </div>""", unsafe_allow_html=True)
+    with s2:
+        pp = len(pos_news); np_ = len(neg_news); np2 = len(neu_news)
+        tot = pp+np_+np2 or 1
+        st.markdown(f"""
+        <div class="card" style="padding:24px;">
+            <div class="mlabel">Article Breakdown</div>
+            <div style="margin-top:14px;">
+                <div style="display:flex;justify-content:space-between;margin-bottom:4px;">
+                    <span class="pos">✅ Positive</span><b class="pos">{pp}</b></div>
+                <div class="bar-track"><div style="height:8px;border-radius:99px;
+                    background:{pos_c};width:{pp/tot*100:.0f}%"></div></div>
+                <div style="display:flex;justify-content:space-between;margin:10px 0 4px;">
+                    <span class="neg">❌ Negative</span><b class="neg">{np_}</b></div>
+                <div class="bar-track"><div style="height:8px;border-radius:99px;
+                    background:{neg_c};width:{np_/tot*100:.0f}%"></div></div>
+                <div style="display:flex;justify-content:space-between;margin:10px 0 4px;">
+                    <span class="neu">⚪ Neutral</span><b class="neu">{np2}</b></div>
+                <div class="bar-track"><div style="height:8px;border-radius:99px;
+                    background:{neu_c};width:{np2/tot*100:.0f}%"></div></div>
+            </div>
+        </div>""", unsafe_allow_html=True)
 
-    # ── TAB 2: NEWS ──
-    with tab2:
-        st.markdown('<div class="sec"><div class="dot"></div><h3>News Sentiment Analysis</h3></div>', unsafe_allow_html=True)
+    # ── Verdict ──────────────────────────────────────────────────────────
+    st.markdown('<div class="sec"><div class="dot"></div><h3>AI Investment Signal</h3></div>', unsafe_allow_html=True)
+    v1,v2 = st.columns([1,2])
+    with v1:
+        bar_w = int(conf)
+        st.markdown(f"""
+        <div class="verdict-box">
+            <div style="font-size:2.8rem;">{v_emoji}</div>
+            <div style="font-size:1.8rem;font-weight:800;color:{v_color};
+                letter-spacing:-0.5px;margin:8px 0;">{verdict}</div>
+            <div class="mlabel">Confidence Score</div>
+            <div style="font-size:2rem;font-weight:700;font-family:'JetBrains Mono',monospace;
+                color:{v_color};">{conf:.0f}<span style="font-size:1rem">/100</span></div>
+            <div class="bar-track" style="margin-top:10px;">
+                <div style="height:8px;border-radius:99px;background:{v_color};
+                    width:{bar_w}%"></div></div>
+        </div>""", unsafe_allow_html=True)
+    with v2:
+        if reasons:
+            st.markdown("**✅ Bullish Signals**")
+            for r in reasons: st.markdown(f"- {r}")
+        if risks:
+            st.markdown("**⚠️ Risk Factors**")
+            for r in risks: st.markdown(f"- {r}")
 
+    # ── News feed ────────────────────────────────────────────────────────
+    st.markdown('<div class="sec"><div class="dot"></div><h3>Recent News</h3></div>', unsafe_allow_html=True)
+    if articles:
         for a in articles:
+            pill_cls = "pp" if a["sentiment"]=="positive" else ("np" if a["sentiment"]=="negative" else "neup")
+            pill_txt = a["sentiment"].upper()
+            score_txt = f"{a['score']:+.2f}"
             st.markdown(f"""
             <div class="news-item">
                 <div class="ntitle">{a['title']}</div>
                 <div class="nmeta">
-                    <span>{a['sentiment'].upper()}</span>
-                    <span>{a['score']:+.2f}</span>
+                    <span class="pill {pill_cls}">{pill_txt}</span>
+                    <span>Score: {score_txt}</span>
+                    <span>📅 {a['published']}</span>
                 </div>
-            </div>
-            """, unsafe_allow_html=True)
-
-    # ── TAB 3: TECHNICALS ──
-    with tab3:
-        if tech:
-            st.write("RSI:", tech.get("rsi"))
-            st.write("MACD:", tech.get("macd"))
-            st.write("MA20:", tech.get("ma20"))
-
-    # ── TAB 4: VERDICT ──
-    with tab4:
-        st.markdown(f"## {v_emoji} {verdict}")
-        st.write("Confidence:", conf)
-
-        if reasons:
-            st.write("### Bullish Signals")
-            for r in reasons:
-                st.write("-", r)
-
-        if risks:
-            st.write("### Risks")
-            for r in risks:
-                st.write("-", r)
+            </div>""", unsafe_allow_html=True)
+    else:
+        st.info("📭 No recent news found. Try again in a moment.")
 
 if __name__ == "__main__":
     main()
