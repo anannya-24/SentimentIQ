@@ -365,7 +365,7 @@ def main():
         
         st.markdown("### 📊 5-Year Price Trend")
         if hist and "close" in hist and "dates" in hist:
-    try:
+        try:
         prices = hist.get("close", [])
         dates = hist.get("dates", [])
 
