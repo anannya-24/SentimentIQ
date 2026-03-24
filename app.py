@@ -362,8 +362,7 @@ def main():
         c2.metric("📈 52W High", f"₹{w52h:,.2f}")
         c3.metric("📉 52W Low", f"₹{w52l:,.2f}")
         c4.metric("🏦 Exchange", exch)
-
-         # ── VERDICT ──
+    # ── VERDICT ──
     st.markdown(f"""
 ## {v_emoji} {verdict}
 ### Confidence: {conf}/100
@@ -384,7 +383,6 @@ def main():
             st.write("-", r)
 
     st.markdown("<br>", unsafe_allow_html=True)
-
 # ── CANDLESTICK CHART ──
 if hist and all(k in hist for k in ["open","high","low","close","dates"]):
     try:
