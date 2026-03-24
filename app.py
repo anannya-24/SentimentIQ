@@ -311,11 +311,8 @@ def main():
 - 📊 Yahoo Finance live data
 - 📰 Google News RSS
 - 📐 RSI · MACD · MA indicators
-
-*Educational use only. Not financial advice.*
         """)
         st.markdown("---")
-        st.caption("MBA · AI & FinTech Project · 2025")
 
     load_css(dark)
     bp="#0A0E1A" if dark else "#F0F4FF"
@@ -328,17 +325,32 @@ def main():
         <p>Real-time sentiment analysis &amp; investment signals for Indian stocks</p>
     </div>""", unsafe_allow_html=True)
 
-    col1, col2 = st.columns([4,1])
-    with col1:
-        chosen = st.selectbox("🔍 Select or type a company name", list(INDIAN_STOCKS.keys()))
-    with col2:
-        st.markdown("<br>", unsafe_allow_html=True)
-        go = st.button("Analyse →")
+   col1, col2 = st.columns([4,1])
 
-    if not (go or chosen):
-        return
+with col1:
+    user_input = st.text_input("🔍 Search company (or pick from list)")
+    selected_company = st.selectbox("Or select from list", list(INDIAN_STOCKS.keys()))
 
-    ticker = INDIAN_STOCKS[chosen]
+with col2:
+    st.markdown("<br>", unsafe_allow_html=True)
+    go = st.button("Analyse →")
+
+   if not go:
+    return
+
+   selected_company = None
+
+# Priority: typed input > dropdown
+if user_input:
+    for name in INDIAN_STOCKS:
+        if user_input.lower() in name.lower():
+            selected_company = name
+            break
+
+if not selected_company:
+    selected_company = chosen
+
+ticker = INDIAN_STOCKS[selected_company]
 
     with st.spinner("Fetching live market data…"):
         hist, info = fetch_yahoo(ticker)
@@ -476,7 +488,6 @@ def main():
         if risks:
             st.markdown("**⚠️ Risk Factors**")
             for r in risks: st.markdown(f"- {r}")
-        st.info("⚠️ **Disclaimer:** This is an AI-powered educational tool. Always do your own research before investing. This is not financial advice.")
 
     # ── News feed ────────────────────────────────────────────────────────
     st.markdown('<div class="sec"><div class="dot"></div><h3>Recent News</h3></div>', unsafe_allow_html=True)
