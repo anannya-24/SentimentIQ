@@ -372,6 +372,11 @@ def main():
 """)
 
     st.progress(conf_display/100)
+    st.info(f"""
+🧠 AI Insight: The stock shows a **{verdict}** signal driven by 
+sentiment score ({round(avg_sent,2)}), RSI ({tech.get("rsi")}), 
+and moving average trends.
+""")
 
     colA, colB = st.columns(2)
 
