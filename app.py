@@ -364,7 +364,7 @@ def main():
         c4.metric("🏦 Exchange", exch)
         
         st.markdown("### 📊 5-Year Price Trend")
-if hist and "close" in hist and "dates" in hist:
+        if hist and "close" in hist and "dates" in hist:
     try:
         prices = hist.get("close", [])
         dates = hist.get("dates", [])
