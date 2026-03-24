@@ -299,6 +299,7 @@ def load_css(dark):
     </style>""", unsafe_allow_html=True)
 
 # ── App ───────────────────────────────────────────────────────────────────────
+# ── App ───────────────────────────────────────────────────────────────────────
 def main():
     with st.sidebar:
         st.markdown("### ⚙️ Settings")
@@ -325,15 +326,6 @@ def main():
         <p>Real-time sentiment analysis &amp; investment signals for Indian stocks</p>
     </div>""", unsafe_allow_html=True)
 
-  def main():
-
-    with st.sidebar:
-        ...
-    
-    load_css(dark)
-
-    st.markdown("""...""", unsafe_allow_html=True)
-
     col1, col2 = st.columns([4,1])
 
     with col1:
@@ -344,22 +336,22 @@ def main():
         st.markdown("<br>", unsafe_allow_html=True)
         go = st.button("Analyse →")
 
-   if not go:
-    return
+    if not go:
+        return
 
-   selected_company = None
+    selected_company = None
 
-# Priority: typed input > dropdown
-if user_input:
-    for name in INDIAN_STOCKS:
-        if user_input.lower() in name.lower():
-            selected_company = name
-            break
+    # Priority: typed input > dropdown
+    if user_input:
+        for name in INDIAN_STOCKS:
+            if user_input.lower() in name.lower():
+                selected_company = name
+                break
 
-if not selected_company:
-    selected_company = chosen
+    if not selected_company:
+        selected_company = chosen
 
-ticker = INDIAN_STOCKS[selected_company]
+    ticker = INDIAN_STOCKS[selected_company]
 
     with st.spinner("Fetching live market data…"):
         hist, info = fetch_yahoo(ticker)
