@@ -1,22 +1,11 @@
 import streamlit as st
-import yfinance as yf
-import pandas as pd
-import numpy as np
-import requests
-from datetime import datetime, timedelta
-import plotly.graph_objects as go
-import plotly.express as px
-from plotly.subplots import make_subplots
-import time
-import re
-from textblob import TextBlob
-from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
-import feedparser
+import urllib.request
 import urllib.parse
-import warnings
-warnings.filterwarnings('ignore')
+import json
+import re
+from datetime import datetime
+import xml.etree.ElementTree as ET
 
-# ─── Page Config ──────────────────────────────────────────────────────────────
 st.set_page_config(
     page_title="SentimentEdge — Indian Stock Intelligence",
     page_icon="📈",
@@ -24,1022 +13,489 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# ─── Indian Stocks Database (NSE + BSE) ───────────────────────────────────────
+# ── Indian Stocks ─────────────────────────────────────────────────────────────
 INDIAN_STOCKS = {
-    # NIFTY 50
-    "Reliance Industries": "RELIANCE.NS",
-    "TCS": "TCS.NS",
-    "HDFC Bank": "HDFCBANK.NS",
-    "Infosys": "INFY.NS",
-    "ICICI Bank": "ICICIBANK.NS",
-    "Hindustan Unilever": "HINDUNILVR.NS",
-    "ITC": "ITC.NS",
-    "State Bank of India": "SBIN.NS",
-    "Bharti Airtel": "BHARTIARTL.NS",
-    "Kotak Mahindra Bank": "KOTAKBANK.NS",
-    "Bajaj Finance": "BAJFINANCE.NS",
-    "LTIMindtree": "LTIM.NS",
-    "HCL Technologies": "HCLTECH.NS",
-    "Asian Paints": "ASIANPAINT.NS",
-    "Axis Bank": "AXISBANK.NS",
-    "Larsen & Toubro": "LT.NS",
-    "Sun Pharmaceutical": "SUNPHARMA.NS",
-    "UltraTech Cement": "ULTRACEMCO.NS",
-    "Maruti Suzuki": "MARUTI.NS",
-    "Titan Company": "TITAN.NS",
-    "Wipro": "WIPRO.NS",
-    "Nestle India": "NESTLEIND.NS",
-    "Power Grid": "POWERGRID.NS",
-    "NTPC": "NTPC.NS",
-    "Tech Mahindra": "TECHM.NS",
-    "Bajaj Finserv": "BAJAJFINSV.NS",
-    "JSW Steel": "JSWSTEEL.NS",
-    "Tata Steel": "TATASTEEL.NS",
-    "ONGC": "ONGC.NS",
-    "Coal India": "COALINDIA.NS",
-    "Adani Enterprises": "ADANIENT.NS",
-    "Adani Ports": "ADANIPORTS.NS",
-    "Adani Green Energy": "ADANIGREEN.NS",
-    "Tata Motors": "TATAMOTORS.NS",
-    "Tata Consultancy Services": "TCS.NS",
-    "Mahindra & Mahindra": "M&M.NS",
-    "Hero MotoCorp": "HEROMOTOCO.NS",
-    "Bajaj Auto": "BAJAJ-AUTO.NS",
-    "Eicher Motors": "EICHERMOT.NS",
-    "IndusInd Bank": "INDUSINDBK.NS",
-    "Cipla": "CIPLA.NS",
-    "Dr. Reddy's Laboratories": "DRREDDY.NS",
-    "Divi's Laboratories": "DIVISLAB.NS",
-    "Apollo Hospitals": "APOLLOHOSP.NS",
-    "Grasim Industries": "GRASIM.NS",
-    "Shree Cement": "SHREECEM.NS",
-    "Havells India": "HAVELLS.NS",
-    "Pidilite Industries": "PIDILITIND.NS",
-    "Muthoot Finance": "MUTHOOTFIN.NS",
-    "Torrent Pharmaceuticals": "TORNTPHARM.NS",
-    # NIFTY Next 50
-    "Bharat Electronics": "BEL.NS",
-    "HAL": "HAL.NS",
-    "DLF": "DLF.NS",
-    "Godrej Consumer Products": "GODREJCP.NS",
-    "Vodafone Idea": "IDEA.NS",
-    "BHEL": "BHEL.NS",
-    "SAIL": "SAIL.NS",
-    "GAIL": "GAIL.NS",
-    "Indian Oil": "IOC.NS",
-    "BPCL": "BPCL.NS",
-    "Hindustan Petroleum": "HINDPETRO.NS",
-    "Bank of Baroda": "BANKBARODA.NS",
-    "Punjab National Bank": "PNB.NS",
-    "Canara Bank": "CANBK.NS",
-    "Union Bank": "UNIONBANK.NS",
-    "Bosch": "BOSCHLTD.NS",
-    "Siemens India": "SIEMENS.NS",
-    "ABB India": "ABB.NS",
-    "Cummins India": "CUMMINSIND.NS",
-    "Ashok Leyland": "ASHOKLEY.NS",
-    "TVS Motor": "TVSMOTOR.NS",
-    "Motherson Sumi": "MOTHERSON.NS",
-    "Bharat Forge": "BHARATFORG.NS",
-    "Exide Industries": "EXIDEIND.NS",
-    "Amara Raja Batteries": "AMARAJABAT.NS",
-    "Dabur India": "DABUR.NS",
-    "Marico": "MARICO.NS",
-    "Colgate-Palmolive India": "COLPAL.NS",
-    "Emami": "EMAMILTD.NS",
-    "Godrej Properties": "GODREJPROP.NS",
-    "Oberoi Realty": "OBEROIRLTY.NS",
-    "Prestige Estates": "PRESTIGE.NS",
-    "Crompton Greaves": "CROMPTON.NS",
-    "Voltas": "VOLTAS.NS",
-    "Blue Star": "BLUESTARCO.NS",
-    "Whirlpool India": "WHIRLPOOL.NS",
-    "Dixon Technologies": "DIXON.NS",
-    "Amber Enterprises": "AMBER.NS",
-    "Polycab India": "POLYCAB.NS",
-    "KEI Industries": "KEI.NS",
-    "Tata Power": "TATAPOWER.NS",
-    "Adani Power": "ADANIPOWER.NS",
-    "JSW Energy": "JSWENERGY.NS",
-    "Torrent Power": "TORNTPOWER.NS",
-    "CESC": "CESC.NS",
-    "Interglobe Aviation (IndiGo)": "INDIGO.NS",
-    "SpiceJet": "SPICEJET.NS",
-    "Container Corporation": "CONCOR.NS",
-    "Gateway Distriparks": "GDL.NS",
-    "Zomato": "ZOMATO.NS",
-    "Paytm (One97 Communications)": "PAYTM.NS",
-    "Nykaa (FSN E-Commerce)": "NYKAA.NS",
-    "PB Fintech (Policybazaar)": "POLICYBZR.NS",
-    "Delhivery": "DELHIVERY.NS",
-    "Nazara Technologies": "NAZARA.NS",
-    "Info Edge (Naukri)": "NAUKRI.NS",
-    "Just Dial": "JUSTDIAL.NS",
-    "Indiamart Intermesh": "INDIAMART.NS",
-    "CarTrade Tech": "CARTRADE.NS",
-    "Easy Trip Planners (EaseMyTrip)": "EASEMYTRIP.NS",
-    "Irctc": "IRCTC.NS",
-    "RITES": "RITES.NS",
-    "IRFC": "IRFC.NS",
-    "REC Limited": "RECLTD.NS",
-    "PFC": "PFC.NS",
-    "HUDCO": "HUDCO.NS",
-    "LIC Housing Finance": "LICHSGFIN.NS",
-    "HDFC Life Insurance": "HDFCLIFE.NS",
-    "SBI Life Insurance": "SBILIFE.NS",
-    "ICICI Prudential Life": "ICICIPRULI.NS",
-    "Max Financial Services": "MFSL.NS",
-    "General Insurance": "GICRE.NS",
-    "New India Assurance": "NIACL.NS",
-    "Star Health Insurance": "STARHEALTH.NS",
-    "SBI Cards": "SBICARD.NS",
-    "Cholamandalam Investment": "CHOLAFIN.NS",
-    "Mahindra Finance": "M&MFIN.NS",
-    "Shriram Finance": "SHRIRAMFIN.NS",
-    "Sundaram Finance": "SUNDARMFIN.NS",
-    "L&T Finance Holdings": "L&TFH.NS",
-    "Aavas Financiers": "AAVAS.NS",
-    "Home First Finance": "HOMEFIRST.NS",
-    "Five Star Business Finance": "FIVESTAR.NS",
-    "Ujjivan Small Finance Bank": "UJJIVANSFB.NS",
-    "AU Small Finance Bank": "AUBANK.NS",
-    "Equitas Small Finance Bank": "EQUITASBNK.NS",
-    "IDFC First Bank": "IDFCFIRSTB.NS",
-    "Federal Bank": "FEDERALBNK.NS",
-    "Karnataka Bank": "KTKBANK.NS",
-    "South Indian Bank": "SOUTHBANK.NS",
-    "City Union Bank": "CUB.NS",
-    "Karur Vysya Bank": "KARURVYSYA.NS",
-    "Bandhan Bank": "BANDHANBNK.NS",
-    "RBL Bank": "RBLBANK.NS",
-    "Yes Bank": "YESBANK.NS",
-    "Biocon": "BIOCON.NS",
-    "Lupin": "LUPIN.NS",
-    "Alkem Laboratories": "ALKEM.NS",
-    "Ipca Laboratories": "IPCALAB.NS",
-    "Natco Pharma": "NATCOPHARM.NS",
-    "Glenmark Pharmaceuticals": "GLENMARK.NS",
-    "Mankind Pharma": "MANKIND.NS",
-    "Granules India": "GRANULES.NS",
-    "Suven Pharmaceuticals": "SUVEN.NS",
-    "Astrazeneca India": "ASTRAZEN.NS",
-    "Pfizer India": "PFIZER.NS",
-    "Abbott India": "ABBOTINDIA.NS",
-    "Sanofi India": "SANOFI.NS",
-    "Tata Chemicals": "TATACHEM.NS",
-    "UPL": "UPL.NS",
-    "PI Industries": "PIIND.NS",
-    "Coromandel International": "COROMANDEL.NS",
-    "Chambal Fertilizers": "CHAMBLFERT.NS",
-    "Gujarat Fluorochemicals": "FLUOROCHEM.NS",
-    "SRF": "SRF.NS",
-    "Navin Fluorine": "NAVINFLUOR.NS",
-    "Deepak Nitrite": "DEEPAKNTR.NS",
-    "Aarti Industries": "AARTIIND.NS",
-    "Vinati Organics": "VINATIORGA.NS",
-    "Galaxy Surfactants": "GALAXYSURF.NS",
-    "Tata Consumer Products": "TATACONSUM.NS",
-    "Varun Beverages": "VBL.NS",
-    "United Spirits": "MCDOWELL-N.NS",
-    "United Breweries": "UBL.NS",
-    "Jubilant FoodWorks": "JUBLFOOD.NS",
-    "Devyani International": "DEVYANI.NS",
-    "Sapphire Foods": "SAPPHIRE.NS",
-    "Restaurant Brands Asia": "RBA.NS",
-    "Westlife Foodworld": "WESTLIFE.NS",
-    "Trident": "TRIDENT.NS",
-    "Welspun India": "WELSPUNIND.NS",
-    "Raymond": "RAYMOND.NS",
-    "Arvind": "ARVIND.NS",
-    "Page Industries": "PAGEIND.NS",
-    "Lux Industries": "LUXIND.NS",
-    "Vedanta": "VEDL.NS",
-    "Hindalco": "HINDALCO.NS",
-    "National Aluminium": "NATIONALUM.NS",
-    "Hindustan Zinc": "HINDZINC.NS",
-    "Sterlite Technologies": "STLTECH.NS",
-    "Jindal Steel & Power": "JINDALSTEL.NS",
-    "Jindal Stainless": "JSL.NS",
-    "APL Apollo Tubes": "APLAPOLLO.NS",
-    "Ratnamani Metals": "RATNAMANI.NS",
-    "Man Infraconstruction": "MANINFRA.NS",
+    "Reliance Industries": "RELIANCE.NS","TCS": "TCS.NS","HDFC Bank": "HDFCBANK.NS",
+    "Infosys": "INFY.NS","ICICI Bank": "ICICIBANK.NS","Hindustan Unilever": "HINDUNILVR.NS",
+    "ITC": "ITC.NS","State Bank of India": "SBIN.NS","Bharti Airtel": "BHARTIARTL.NS",
+    "Kotak Mahindra Bank": "KOTAKBANK.NS","Bajaj Finance": "BAJFINANCE.NS",
+    "HCL Technologies": "HCLTECH.NS","Asian Paints": "ASIANPAINT.NS","Axis Bank": "AXISBANK.NS",
+    "Larsen & Toubro": "LT.NS","Sun Pharmaceutical": "SUNPHARMA.NS",
+    "UltraTech Cement": "ULTRACEMCO.NS","Maruti Suzuki": "MARUTI.NS","Titan Company": "TITAN.NS",
+    "Wipro": "WIPRO.NS","Nestle India": "NESTLEIND.NS","Power Grid": "POWERGRID.NS",
+    "NTPC": "NTPC.NS","Tech Mahindra": "TECHM.NS","Bajaj Finserv": "BAJAJFINSV.NS",
+    "JSW Steel": "JSWSTEEL.NS","Tata Steel": "TATASTEEL.NS","ONGC": "ONGC.NS",
+    "Coal India": "COALINDIA.NS","Adani Enterprises": "ADANIENT.NS","Adani Ports": "ADANIPORTS.NS",
+    "Adani Green Energy": "ADANIGREEN.NS","Tata Motors": "TATAMOTORS.NS",
+    "Mahindra & Mahindra": "M&M.NS","Hero MotoCorp": "HEROMOTOCO.NS","Bajaj Auto": "BAJAJ-AUTO.NS",
+    "Eicher Motors": "EICHERMOT.NS","IndusInd Bank": "INDUSINDBK.NS","Cipla": "CIPLA.NS",
+    "Dr. Reddy's Laboratories": "DRREDDY.NS","Divi's Laboratories": "DIVISLAB.NS",
+    "Apollo Hospitals": "APOLLOHOSP.NS","Grasim Industries": "GRASIM.NS",
+    "Havells India": "HAVELLS.NS","Pidilite Industries": "PIDILITIND.NS",
+    "Muthoot Finance": "MUTHOOTFIN.NS","Torrent Pharmaceuticals": "TORNTPHARM.NS",
+    "Bharat Electronics": "BEL.NS","HAL": "HAL.NS","DLF": "DLF.NS",
+    "BHEL": "BHEL.NS","SAIL": "SAIL.NS","GAIL": "GAIL.NS","Indian Oil": "IOC.NS",
+    "BPCL": "BPCL.NS","Bank of Baroda": "BANKBARODA.NS","Punjab National Bank": "PNB.NS",
+    "Canara Bank": "CANBK.NS","Zomato": "ZOMATO.NS","Paytm": "PAYTM.NS","Nykaa": "NYKAA.NS",
+    "Delhivery": "DELHIVERY.NS","Info Edge (Naukri)": "NAUKRI.NS","IRCTC": "IRCTC.NS",
+    "IRFC": "IRFC.NS","REC Limited": "RECLTD.NS","PFC": "PFC.NS",
+    "HDFC Life Insurance": "HDFCLIFE.NS","SBI Life Insurance": "SBILIFE.NS",
+    "SBI Cards": "SBICARD.NS","Cholamandalam Investment": "CHOLAFIN.NS",
+    "AU Small Finance Bank": "AUBANK.NS","IDFC First Bank": "IDFCFIRSTB.NS",
+    "Federal Bank": "FEDERALBNK.NS","Bandhan Bank": "BANDHANBNK.NS","Yes Bank": "YESBANK.NS",
+    "Biocon": "BIOCON.NS","Lupin": "LUPIN.NS","Glenmark Pharmaceuticals": "GLENMARK.NS",
+    "UPL": "UPL.NS","PI Industries": "PIIND.NS","Tata Chemicals": "TATACHEM.NS",
+    "Tata Power": "TATAPOWER.NS","Adani Power": "ADANIPOWER.NS","IndiGo": "INDIGO.NS",
+    "Vedanta": "VEDL.NS","Hindalco": "HINDALCO.NS","Hindustan Zinc": "HINDZINC.NS",
+    "Jindal Steel & Power": "JINDALSTEL.NS","Tata Consumer Products": "TATACONSUM.NS",
+    "Varun Beverages": "VBL.NS","Jubilant FoodWorks": "JUBLFOOD.NS",
+    "Page Industries": "PAGEIND.NS","LTIMindtree": "LTIM.NS",
+    "Mankind Pharma": "MANKIND.NS","Dixon Technologies": "DIXON.NS",
+    "Polycab India": "POLYCAB.NS","Siemens India": "SIEMENS.NS","ABB India": "ABB.NS",
+    "Ashok Leyland": "ASHOKLEY.NS","TVS Motor": "TVSMOTOR.NS","Bharti Forge": "BHARATFORG.NS",
+    "Dabur India": "DABUR.NS","Marico": "MARICO.NS","Colgate-Palmolive India": "COLPAL.NS",
+    "Godrej Properties": "GODREJPROP.NS","Oberoi Realty": "OBEROIRLTY.NS",
+    "Shriram Finance": "SHRIRAMFIN.NS","L&T Finance": "L&TFH.NS",
+    "National Aluminium": "NATIONALUM.NS","Deepak Nitrite": "DEEPAKNTR.NS",
+    "SRF": "SRF.NS","Aarti Industries": "AARTIIND.NS","Raymond": "RAYMOND.NS",
+    "Container Corporation": "CONCOR.NS","RBL Bank": "RBLBANK.NS",
 }
 
-# ─── Custom CSS ───────────────────────────────────────────────────────────────
-def load_css(dark_mode):
-    if dark_mode:
-        bg_primary = "#0A0E1A"
-        bg_secondary = "#111827"
-        bg_card = "#1A2332"
-        text_primary = "#F0F4FF"
-        text_secondary = "#94A3B8"
-        accent = "#00D4FF"
-        accent2 = "#7C3AED"
-        border = "#1E2D45"
-        positive = "#10B981"
-        negative = "#EF4444"
-        warning = "#F59E0B"
-    else:
-        bg_primary = "#F8FAFF"
-        bg_secondary = "#EEF2FF"
-        bg_card = "#FFFFFF"
-        text_primary = "#0F172A"
-        text_secondary = "#475569"
-        accent = "#0066CC"
-        accent2 = "#7C3AED"
-        border = "#E2E8F0"
-        positive = "#059669"
-        negative = "#DC2626"
-        warning = "#D97706"
+# ── VADER-lite: built-in lexicon, no install needed ──────────────────────────
+POSITIVE_WORDS = {
+    "growth","profit","surge","rally","strong","beat","record","gain","rise","up","bullish",
+    "outperform","upgrade","buy","positive","boost","soar","jump","high","good","great",
+    "excellent","opportunity","recovery","success","win","advance","expand","improve",
+    "revenue","earnings","dividend","acquisition","innovation","launch","partnership",
+    "approval","milestone","target","exceed","robust","solid","optimistic","confident",
+    "increase","higher","better","best","boom","breakout","momentum","upside","attractive",
+    "potential","deliver","achieve","order","contract","invest","fund","grow","benefit",
+    "reward","leader","dominant","efficient","quality","value","returns","recommend",
+}
+NEGATIVE_WORDS = {
+    "loss","decline","fall","drop","weak","miss","disappoint","sell","bearish","risk",
+    "concern","worry","debt","crisis","cut","reduce","lower","poor","bad","negative",
+    "slow","down","downturn","underperform","downgrade","crash","plunge","slump","trouble",
+    "problem","issue","challenge","threat","uncertainty","volatile","warning","alert",
+    "default","penalty","fine","fraud","scam","probe","investigation","lawsuit","recall",
+    "ban","restrict","delay","cancel","fail","exit","close","layoff","resign","resign",
+    "pressure","squeeze","margin","competition","dilute","expensive","overvalued","bubble",
+}
 
-    st.markdown(f"""
-    <style>
-    @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+def simple_sentiment(text):
+    text_lower = text.lower()
+    words = re.findall(r'\b\w+\b', text_lower)
+    pos = sum(1 for w in words if w in POSITIVE_WORDS)
+    neg = sum(1 for w in words if w in NEGATIVE_WORDS)
+    total = pos + neg
+    if total == 0:
+        return 0.0, "neutral"
+    score = (pos - neg) / (total + len(words) * 0.1)
+    score = max(-1.0, min(1.0, score * 3))
+    if score > 0.05:
+        return round(score, 3), "positive"
+    elif score < -0.05:
+        return round(score, 3), "negative"
+    return 0.0, "neutral"
 
-    html, body, [class*="css"] {{
-        font-family: 'Space Grotesk', sans-serif;
-    }}
-
-    .stApp {{
-        background-color: {bg_primary};
-        color: {text_primary};
-    }}
-
-    /* Header */
-    .main-header {{
-        background: linear-gradient(135deg, {bg_secondary} 0%, {bg_card} 100%);
-        border: 1px solid {border};
-        border-radius: 16px;
-        padding: 28px 36px;
-        margin-bottom: 24px;
-        position: relative;
-        overflow: hidden;
-    }}
-    .main-header::before {{
-        content: '';
-        position: absolute;
-        top: 0; left: 0; right: 0;
-        height: 3px;
-        background: linear-gradient(90deg, {accent}, {accent2});
-    }}
-    .main-header h1 {{
-        font-size: 2.2rem;
-        font-weight: 700;
-        color: {text_primary};
-        margin: 0 0 6px 0;
-        letter-spacing: -0.5px;
-    }}
-    .main-header p {{
-        color: {text_secondary};
-        margin: 0;
-        font-size: 0.95rem;
-    }}
-    .badge {{
-        display: inline-block;
-        background: linear-gradient(135deg, {accent}22, {accent2}22);
-        border: 1px solid {accent}44;
-        color: {accent};
-        font-size: 0.7rem;
-        font-weight: 600;
-        letter-spacing: 1px;
-        text-transform: uppercase;
-        padding: 3px 10px;
-        border-radius: 20px;
-        margin-bottom: 10px;
-    }}
-
-    /* Metric cards */
-    .metric-card {{
-        background: {bg_card};
-        border: 1px solid {border};
-        border-radius: 12px;
-        padding: 20px;
-        text-align: center;
-        transition: transform 0.2s, box-shadow 0.2s;
-    }}
-    .metric-card:hover {{
-        transform: translateY(-2px);
-        box-shadow: 0 8px 24px {accent}22;
-    }}
-    .metric-label {{
-        font-size: 0.75rem;
-        font-weight: 600;
-        text-transform: uppercase;
-        letter-spacing: 1px;
-        color: {text_secondary};
-        margin-bottom: 8px;
-    }}
-    .metric-value {{
-        font-size: 1.6rem;
-        font-weight: 700;
-        color: {text_primary};
-        font-family: 'JetBrains Mono', monospace;
-    }}
-    .metric-delta {{
-        font-size: 0.8rem;
-        margin-top: 4px;
-        font-family: 'JetBrains Mono', monospace;
-    }}
-    .positive {{ color: {positive}; }}
-    .negative {{ color: {negative}; }}
-    .neutral {{ color: {warning}; }}
-
-    /* Section headers */
-    .section-header {{
-        display: flex;
-        align-items: center;
-        gap: 10px;
-        margin: 28px 0 16px 0;
-        padding-bottom: 10px;
-        border-bottom: 1px solid {border};
-    }}
-    .section-header h3 {{
-        font-size: 1.1rem;
-        font-weight: 600;
-        color: {text_primary};
-        margin: 0;
-    }}
-    .section-dot {{
-        width: 8px; height: 8px;
-        border-radius: 50%;
-        background: linear-gradient(135deg, {accent}, {accent2});
-    }}
-
-    /* Sentiment gauge */
-    .sentiment-container {{
-        background: {bg_card};
-        border: 1px solid {border};
-        border-radius: 16px;
-        padding: 28px;
-        text-align: center;
-    }}
-    .verdict-box {{
-        background: linear-gradient(135deg, {bg_secondary}, {bg_card});
-        border: 1px solid {border};
-        border-radius: 16px;
-        padding: 24px;
-        text-align: center;
-        margin-top: 16px;
-    }}
-    .verdict-text {{
-        font-size: 2rem;
-        font-weight: 700;
-        letter-spacing: -0.5px;
-    }}
-
-    /* News cards */
-    .news-card {{
-        background: {bg_card};
-        border: 1px solid {border};
-        border-radius: 10px;
-        padding: 16px;
-        margin-bottom: 10px;
-        transition: border-color 0.2s;
-    }}
-    .news-card:hover {{
-        border-color: {accent}66;
-    }}
-    .news-title {{
-        font-size: 0.9rem;
-        font-weight: 600;
-        color: {text_primary};
-        margin-bottom: 6px;
-        line-height: 1.4;
-    }}
-    .news-meta {{
-        font-size: 0.75rem;
-        color: {text_secondary};
-        display: flex;
-        gap: 12px;
-        flex-wrap: wrap;
-    }}
-    .sentiment-pill {{
-        padding: 2px 8px;
-        border-radius: 20px;
-        font-size: 0.7rem;
-        font-weight: 600;
-    }}
-    .pill-positive {{ background: {positive}22; color: {positive}; border: 1px solid {positive}44; }}
-    .pill-negative {{ background: {negative}22; color: {negative}; border: 1px solid {negative}44; }}
-    .pill-neutral {{ background: {warning}22; color: {warning}; border: 1px solid {warning}44; }}
-
-    /* Sidebar */
-    [data-testid="stSidebar"] {{
-        background: {bg_secondary};
-        border-right: 1px solid {border};
-    }}
-
-    /* Streamlit overrides */
-    .stSelectbox > div > div {{
-        background: {bg_card};
-        border-color: {border};
-        color: {text_primary};
-    }}
-    div[data-testid="stMetric"] {{
-        background: {bg_card};
-        border: 1px solid {border};
-        border-radius: 12px;
-        padding: 16px;
-    }}
-    .stProgress > div > div > div > div {{
-        background: linear-gradient(90deg, {accent}, {accent2});
-    }}
-    div.stButton > button {{
-        background: linear-gradient(135deg, {accent}, {accent2});
-        color: white;
-        border: none;
-        border-radius: 8px;
-        font-weight: 600;
-        padding: 10px 24px;
-        font-family: 'Space Grotesk', sans-serif;
-    }}
-    div.stButton > button:hover {{
-        opacity: 0.9;
-        transform: translateY(-1px);
-    }}
-    </style>
-    """, unsafe_allow_html=True)
-
-# ─── Data Fetching Functions ───────────────────────────────────────────────────
-
-@st.cache_data(ttl=300)
-def get_stock_data(ticker, period="6mo"):
-    """Fetch stock data from Yahoo Finance."""
+# ── Yahoo Finance (no library — direct API call) ───────────────────────────
+def fetch_yahoo(ticker):
+    url = f"https://query1.finance.yahoo.com/v8/finance/chart/{urllib.parse.quote(ticker)}?interval=1d&range=6mo"
+    headers = {"User-Agent": "Mozilla/5.0"}
     try:
-        stock = yf.Ticker(ticker)
-        hist = stock.history(period=period)
-        info = stock.info
+        req = urllib.request.Request(url, headers=headers)
+        with urllib.request.urlopen(req, timeout=10) as r:
+            data = json.loads(r.read())
+        result = data["chart"]["result"][0]
+        meta = result["meta"]
+        timestamps = result.get("timestamp", [])
+        closes = result["indicators"]["quote"][0].get("close", [])
+        highs  = result["indicators"]["quote"][0].get("high", [])
+        lows   = result["indicators"]["quote"][0].get("low", [])
+        opens  = result["indicators"]["quote"][0].get("open", [])
+        volumes= result["indicators"]["quote"][0].get("volume", [])
+        dates  = [datetime.utcfromtimestamp(t).strftime("%Y-%m-%d") for t in timestamps]
+        hist = {"dates": dates, "close": closes, "high": highs,
+                "low": lows, "open": opens, "volume": volumes}
+        info = {
+            "currentPrice": meta.get("regularMarketPrice", 0),
+            "previousClose": meta.get("previousClose") or meta.get("chartPreviousClose", 0),
+            "fiftyTwoWeekHigh": meta.get("fiftyTwoWeekHigh", 0),
+            "fiftyTwoWeekLow": meta.get("fiftyTwoWeekLow", 0),
+            "currency": meta.get("currency", "INR"),
+            "symbol": meta.get("symbol", ticker),
+            "exchange": meta.get("exchangeName", "NSE/BSE"),
+        }
         return hist, info
     except Exception as e:
         return None, {}
 
-def get_news_sentiment(company_name, ticker):
-    """Fetch news from Google News RSS and analyze sentiment."""
-    analyzer = SentimentIntensityAnalyzer()
-    news_items = []
-    queries = [
-        f"{company_name} stock",
-        f"{company_name} NSE BSE",
-        f"{ticker.replace('.NS','').replace('.BO','')} share price"
-    ]
-    for query in queries[:2]:
-        encoded = urllib.parse.quote(query)
-        url = f"https://news.google.com/rss/search?q={encoded}+when:7d&hl=en-IN&gl=IN&ceid=IN:en"
-        try:
-            feed = feedparser.parse(url)
-            for entry in feed.entries[:8]:
-                title = entry.get('title', '')
-                summary = entry.get('summary', '')
-                text = f"{title} {summary}"
-                text_clean = re.sub('<[^<]+?>', '', text)
-                # VADER sentiment
-                vader_score = analyzer.polarity_scores(text_clean)
-                # TextBlob sentiment
-                blob = TextBlob(text_clean)
-                compound = vader_score['compound']
-                if compound >= 0.05:
-                    sentiment = "positive"
-                elif compound <= -0.05:
-                    sentiment = "negative"
-                else:
-                    sentiment = "neutral"
-                published = entry.get('published', 'Recent')
-                source = entry.get('source', {}).get('title', 'News Source') if hasattr(entry.get('source', ''), 'get') else 'Google News'
-                news_items.append({
-                    'title': title[:120] + '...' if len(title) > 120 else title,
-                    'summary': text_clean[:200] + '...' if len(text_clean) > 200 else text_clean,
-                    'sentiment': sentiment,
-                    'score': round(compound, 3),
-                    'subjectivity': round(blob.sentiment.subjectivity, 3),
-                    'published': published,
-                    'source': source,
-                    'url': entry.get('link', '#')
-                })
-        except:
-            continue
-    # Deduplicate
-    seen = set()
-    unique_news = []
-    for item in news_items:
-        if item['title'] not in seen:
-            seen.add(item['title'])
-            unique_news.append(item)
-    return unique_news[:15]
+def fetch_news(company, ticker):
+    symbol = ticker.replace(".NS","").replace(".BO","")
+    query = urllib.parse.quote(f"{company} stock India")
+    url = f"https://news.google.com/rss/search?q={query}+when:7d&hl=en-IN&gl=IN&ceid=IN:en"
+    articles = []
+    try:
+        req = urllib.request.Request(url, headers={"User-Agent":"Mozilla/5.0"})
+        with urllib.request.urlopen(req, timeout=8) as r:
+            raw = r.read()
+        root = ET.fromstring(raw)
+        channel = root.find("channel")
+        items = channel.findall("item") if channel else []
+        for item in items[:12]:
+            title = item.findtext("title","")
+            title = re.sub(r'\s*-\s*\S+$', '', title)  # remove source suffix
+            pub   = item.findtext("pubDate","")[:16]
+            link  = item.findtext("link","#")
+            score, label = simple_sentiment(title)
+            articles.append({"title": title, "published": pub,
+                              "score": score, "sentiment": label, "link": link})
+    except:
+        pass
+    return articles
 
-def calculate_overall_sentiment(news_items):
-    """Calculate weighted overall sentiment score."""
-    if not news_items:
-        return 0, "neutral", 0, 0, 0
-    scores = [item['score'] for item in news_items]
-    avg_score = np.mean(scores)
-    positive = sum(1 for s in scores if s >= 0.05)
-    negative = sum(1 for s in scores if s <= -0.05)
-    neutral = len(scores) - positive - negative
-    if avg_score >= 0.15:
-        sentiment = "positive"
-    elif avg_score <= -0.15:
-        sentiment = "negative"
-    else:
-        sentiment = "neutral"
-    return round(avg_score, 3), sentiment, positive, negative, neutral
-
-def get_technical_indicators(hist):
-    """Calculate basic technical indicators."""
-    if hist is None or len(hist) < 20:
+def calc_technicals(hist):
+    closes = [c for c in hist["close"] if c is not None]
+    vols   = [v for v in hist["volume"] if v is not None]
+    if len(closes) < 20:
         return {}
-    close = hist['Close']
-    # Moving averages
-    ma20 = close.rolling(20).mean().iloc[-1]
-    ma50 = close.rolling(50).mean().iloc[-1] if len(close) >= 50 else None
+    def ma(n):
+        return sum(closes[-n:]) / n if len(closes) >= n else None
     # RSI
-    delta = close.diff()
-    gain = delta.clip(lower=0).rolling(14).mean()
-    loss = (-delta.clip(upper=0)).rolling(14).mean()
-    rs = gain / loss
-    rsi = (100 - (100 / (1 + rs))).iloc[-1]
+    deltas = [closes[i]-closes[i-1] for i in range(1,len(closes))]
+    gains  = [d if d>0 else 0 for d in deltas[-14:]]
+    losses = [-d if d<0 else 0 for d in deltas[-14:]]
+    avg_g  = sum(gains)/14
+    avg_l  = sum(losses)/14
+    rsi    = 100 - (100/(1+(avg_g/avg_l))) if avg_l>0 else 100
     # MACD
-    ema12 = close.ewm(span=12).mean()
-    ema26 = close.ewm(span=26).mean()
-    macd = (ema12 - ema26).iloc[-1]
-    # Bollinger Bands
-    std20 = close.rolling(20).std().iloc[-1]
-    upper_band = ma20 + (2 * std20)
-    lower_band = ma20 - (2 * std20)
-    current_price = close.iloc[-1]
-    # Volume trend
-    avg_vol = hist['Volume'].rolling(20).mean().iloc[-1]
-    curr_vol = hist['Volume'].iloc[-1]
+    def ema(data, span):
+        k = 2/(span+1); v = data[0]
+        for d in data[1:]: v = d*k + v*(1-k)
+        return v
+    macd = ema(closes[-26:], 12) - ema(closes[-26:], 26) if len(closes) >= 26 else 0
+    # Volume
+    avg_vol = sum(vols[-20:])/20 if vols else 0
+    curr_vol = vols[-1] if vols else 0
     return {
-        'current_price': round(current_price, 2),
-        'ma20': round(ma20, 2),
-        'ma50': round(ma50, 2) if ma50 else None,
-        'rsi': round(rsi, 1),
-        'macd': round(macd, 2),
-        'upper_band': round(upper_band, 2),
-        'lower_band': round(lower_band, 2),
-        'vol_ratio': round(curr_vol / avg_vol, 2) if avg_vol > 0 else 1.0
+        "current": round(closes[-1], 2),
+        "ma20": round(ma(20), 2),
+        "ma50": round(ma(50), 2) if len(closes)>=50 else None,
+        "rsi": round(rsi, 1),
+        "macd": round(macd, 2),
+        "vol_ratio": round(curr_vol/avg_vol, 2) if avg_vol else 1.0,
     }
 
-def generate_investment_verdict(sentiment_score, sentiment_label, tech, info):
-    """Generate a comprehensive investment recommendation."""
-    score = 50  # Base score
-    reasons = []
-    risks = []
-
-    # Sentiment component (30%)
-    sent_score = (sentiment_score + 1) / 2 * 30
-    score = score - 15 + sent_score
-    if sentiment_score > 0.2:
-        reasons.append("📰 Strong positive news sentiment")
-    elif sentiment_score < -0.2:
-        risks.append("📰 Negative news flow detected")
-
-    # Technical indicators (40%)
+def investment_signal(sent_score, tech, articles):
+    score = 50
+    reasons, risks = [], []
+    # Sentiment (30%)
+    score += sent_score * 30
+    if sent_score > 0.15: reasons.append("📰 Positive news momentum")
+    elif sent_score < -0.15: risks.append("📰 Negative news flow")
+    # Technicals (50%)
     if tech:
-        cp = tech.get('current_price', 0)
-        ma20 = tech.get('ma20', 0)
-        ma50 = tech.get('ma50', 0)
-        rsi = tech.get('rsi', 50)
-        macd = tech.get('macd', 0)
-
-        if cp > ma20:
-            score += 8
-            reasons.append("📈 Price above 20-day moving average")
-        else:
-            score -= 5
-            risks.append("📉 Price below 20-day MA (bearish signal)")
-
-        if ma50 and cp > ma50:
-            score += 7
-            reasons.append("📊 Trading above 50-day moving average")
-        elif ma50:
-            score -= 5
-            risks.append("📊 Below 50-day MA (longer-term weakness)")
-
-        if 30 <= rsi <= 70:
-            score += 5
-            reasons.append(f"⚖️ RSI at {rsi:.1f} (healthy zone)")
-        elif rsi < 30:
-            score += 8
-            reasons.append(f"🔄 RSI oversold ({rsi:.1f}) — potential reversal")
-        elif rsi > 70:
-            score -= 8
-            risks.append(f"⚠️ RSI overbought ({rsi:.1f}) — caution advised")
-
-        if macd > 0:
-            score += 5
-            reasons.append("✅ MACD positive (bullish momentum)")
-        else:
-            score -= 3
-            risks.append("🔻 MACD negative (bearish momentum)")
-
-    # Fundamental data (30%)
-    pe = info.get('trailingPE', None)
-    pb = info.get('priceToBook', None)
-    div_yield = info.get('dividendYield', 0) or 0
-
-    if pe:
-        if 0 < pe < 25:
-            score += 10
-            reasons.append(f"💰 Attractive P/E ratio ({pe:.1f})")
-        elif pe > 50:
-            score -= 5
-            risks.append(f"⚠️ High P/E ratio ({pe:.1f}) — expensive valuation")
-
-    if div_yield and div_yield > 0.02:
-        score += 5
-        reasons.append(f"💵 Decent dividend yield ({div_yield*100:.1f}%)")
-
-    # Clamp score
+        cp, ma20 = tech.get("current",0), tech.get("ma20",0)
+        ma50, rsi, macd = tech.get("ma50"), tech.get("rsi",50), tech.get("macd",0)
+        if cp > ma20: score+=8; reasons.append("📈 Above 20-day moving average")
+        else: score-=5; risks.append("📉 Below 20-day moving average")
+        if ma50:
+            if cp > ma50: score+=7; reasons.append("📊 Above 50-day moving average")
+            else: score-=5; risks.append("📊 Below 50-day moving average")
+        if rsi < 30: score+=8; reasons.append(f"🔄 RSI oversold ({rsi}) — potential bounce")
+        elif rsi > 70: score-=8; risks.append(f"⚠️ RSI overbought ({rsi}) — caution")
+        else: score+=4; reasons.append(f"⚖️ RSI healthy ({rsi})")
+        if macd > 0: score+=5; reasons.append("✅ MACD bullish")
+        else: score-=3; risks.append("🔻 MACD bearish")
+        vr = tech.get("vol_ratio",1)
+        if vr > 1.5: score+=3; reasons.append(f"🔥 High trading volume ({vr}x avg)")
     score = max(0, min(100, score))
+    if score >= 70: return "STRONG BUY","#10B981","🚀", score, reasons, risks
+    if score >= 55: return "BUY","#22C55E","✅", score, reasons, risks
+    if score >= 40: return "HOLD / WATCH","#F59E0B","⏳", score, reasons, risks
+    if score >= 25: return "SELL","#F97316","⚠️", score, reasons, risks
+    return "STRONG SELL","#EF4444","🔴", score, reasons, risks
 
-    if score >= 70:
-        verdict = "STRONG BUY"
-        verdict_color = "positive"
-        verdict_emoji = "🚀"
-        summary = "Multiple bullish indicators align. Strong candidate for investment consideration."
-    elif score >= 55:
-        verdict = "BUY"
-        verdict_color = "positive"
-        verdict_emoji = "✅"
-        summary = "Favorable signals with moderate confidence. Consider adding to your watchlist."
-    elif score >= 40:
-        verdict = "HOLD / WATCH"
-        verdict_color = "neutral"
-        verdict_emoji = "⏳"
-        summary = "Mixed signals. Wait for clearer direction before making a move."
-    elif score >= 25:
-        verdict = "SELL"
-        verdict_color = "negative"
-        verdict_emoji = "⚠️"
-        summary = "More bearish signals than bullish. Review your position carefully."
-    else:
-        verdict = "STRONG SELL"
-        verdict_color = "negative"
-        verdict_emoji = "🔴"
-        summary = "Strong bearish signals across multiple indicators. High risk."
+# ── Inline sparkline (SVG) ────────────────────────────────────────────────────
+def sparkline_svg(values, color="#00D4FF", width=300, height=60):
+    vals = [v for v in values if v is not None]
+    if len(vals) < 2: return ""
+    mn, mx = min(vals), max(vals)
+    rng = mx - mn or 1
+    pts = []
+    for i, v in enumerate(vals):
+        x = i/(len(vals)-1)*width
+        y = height - (v-mn)/rng*(height-4) - 2
+        pts.append(f"{x:.1f},{y:.1f}")
+    polyline = " ".join(pts)
+    first_x,first_y = pts[0].split(",")
+    last_x,last_y   = pts[-1].split(",")
+    fill_pts = f"{first_x},{height} " + polyline + f" {last_x},{height}"
+    return f"""
+    <svg viewBox="0 0 {width} {height}" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:70px">
+      <defs>
+        <linearGradient id="sg" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="{color}" stop-opacity="0.3"/>
+          <stop offset="100%" stop-color="{color}" stop-opacity="0"/>
+        </linearGradient>
+      </defs>
+      <polygon points="{fill_pts}" fill="url(#sg)"/>
+      <polyline points="{polyline}" fill="none" stroke="{color}" stroke-width="2" stroke-linejoin="round"/>
+    </svg>"""
 
-    return verdict, verdict_color, verdict_emoji, summary, score, reasons, risks
+# ── CSS ───────────────────────────────────────────────────────────────────────
+def load_css(dark):
+    bp  = "#0A0E1A" if dark else "#F0F4FF"
+    bs  = "#111827" if dark else "#E8EEFF"
+    bc  = "#1A2332" if dark else "#FFFFFF"
+    tp  = "#F0F4FF" if dark else "#0F172A"
+    ts  = "#94A3B8" if dark else "#475569"
+    brd = "#1E2D45" if dark else "#DDE4F0"
+    acc = "#00D4FF"
+    pos = "#10B981"; neg = "#EF4444"; wrn = "#F59E0B"
+    st.markdown(f"""<style>
+    @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap');
+    html,body,[class*="css"]{{font-family:'DM Sans',sans-serif;}}
+    .stApp{{background:{bp};color:{tp};}}
+    section[data-testid="stSidebar"]{{background:{bs};border-right:1px solid {brd};}}
+    .top-bar{{background:linear-gradient(135deg,{bs},{bc});border:1px solid {brd};border-radius:14px;
+        padding:24px 30px;margin-bottom:20px;position:relative;overflow:hidden;}}
+    .top-bar::before{{content:'';position:absolute;top:0;left:0;right:0;height:3px;
+        background:linear-gradient(90deg,{acc},#7C3AED);}}
+    .top-bar h1{{font-size:2rem;font-weight:700;margin:4px 0;color:{tp};letter-spacing:-0.5px;}}
+    .top-bar p{{color:{ts};font-size:0.9rem;margin:0;}}
+    .chip{{display:inline-block;background:{acc}18;border:1px solid {acc}44;color:{acc};
+        font-size:0.65rem;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;
+        padding:3px 9px;border-radius:20px;margin-bottom:8px;}}
+    .card{{background:{bc};border:1px solid {brd};border-radius:12px;padding:18px;
+        transition:box-shadow .2s;}}
+    .card:hover{{box-shadow:0 6px 20px {acc}18;}}
+    .mlabel{{font-size:0.7rem;font-weight:600;text-transform:uppercase;letter-spacing:1px;
+        color:{ts};margin-bottom:6px;}}
+    .mval{{font-size:1.45rem;font-weight:700;color:{tp};font-family:'JetBrains Mono',monospace;}}
+    .mdelta{{font-size:0.78rem;margin-top:3px;font-family:'JetBrains Mono',monospace;}}
+    .pos{{color:{pos};}} .neg{{color:{neg};}} .neu{{color:{wrn};}}
+    .sec{{display:flex;align-items:center;gap:8px;margin:22px 0 12px;
+        padding-bottom:8px;border-bottom:1px solid {brd};}}
+    .sec h3{{font-size:1rem;font-weight:600;color:{tp};margin:0;}}
+    .dot{{width:7px;height:7px;border-radius:50%;background:linear-gradient(135deg,{acc},#7C3AED);}}
+    .verdict-box{{background:linear-gradient(135deg,{bs},{bc});border:1px solid {brd};
+        border-radius:14px;padding:24px;text-align:center;}}
+    .news-item{{background:{bc};border:1px solid {brd};border-radius:9px;
+        padding:13px 15px;margin-bottom:8px;}}
+    .news-item:hover{{border-color:{acc}55;}}
+    .ntitle{{font-size:0.88rem;font-weight:500;color:{tp};line-height:1.4;margin-bottom:5px;}}
+    .nmeta{{font-size:0.72rem;color:{ts};display:flex;gap:10px;flex-wrap:wrap;align-items:center;}}
+    .pill{{padding:2px 7px;border-radius:20px;font-size:0.68rem;font-weight:700;}}
+    .pp{{background:{pos}20;color:{pos};border:1px solid {pos}44;}}
+    .np{{background:{neg}20;color:{neg};border:1px solid {neg}44;}}
+    .neup{{background:{wrn}20;color:{wrn};border:1px solid {wrn}44;}}
+    .bar-track{{background:{brd};border-radius:99px;height:8px;margin:6px 0;}}
+    .bar-fill{{height:8px;border-radius:99px;background:linear-gradient(90deg,{acc},#7C3AED);}}
+    div.stButton>button{{background:linear-gradient(135deg,{acc},#7C3AED);color:#fff;
+        border:none;border-radius:8px;font-weight:600;font-family:'DM Sans',sans-serif;
+        padding:10px 22px;width:100%;}}
+    div.stButton>button:hover{{opacity:.88;transform:translateY(-1px);}}
+    </style>""", unsafe_allow_html=True)
 
-# ─── Chart Functions ──────────────────────────────────────────────────────────
-
-def plot_candlestick(hist, ticker, dark_mode):
-    bg = "#0A0E1A" if dark_mode else "#FFFFFF"
-    grid = "#1E2D45" if dark_mode else "#E2E8F0"
-    text_color = "#F0F4FF" if dark_mode else "#0F172A"
-
-    fig = make_subplots(rows=2, cols=1, shared_xaxes=True,
-                        vertical_spacing=0.04, row_heights=[0.7, 0.3])
-    fig.add_trace(go.Candlestick(
-        x=hist.index, open=hist['Open'], high=hist['High'],
-        low=hist['Low'], close=hist['Close'],
-        increasing_line_color='#10B981', decreasing_line_color='#EF4444',
-        name='Price'
-    ), row=1, col=1)
-
-    ma20 = hist['Close'].rolling(20).mean()
-    ma50 = hist['Close'].rolling(50).mean()
-    fig.add_trace(go.Scatter(x=hist.index, y=ma20, name='MA20',
-                             line=dict(color='#00D4FF', width=1.5), opacity=0.8), row=1, col=1)
-    fig.add_trace(go.Scatter(x=hist.index, y=ma50, name='MA50',
-                             line=dict(color='#F59E0B', width=1.5), opacity=0.8), row=1, col=1)
-    fig.add_trace(go.Bar(x=hist.index, y=hist['Volume'], name='Volume',
-                         marker_color='#7C3AED', opacity=0.6), row=2, col=1)
-
-    fig.update_layout(
-        paper_bgcolor=bg, plot_bgcolor=bg,
-        font=dict(color=text_color, family='Space Grotesk'),
-        xaxis_rangeslider_visible=False,
-        legend=dict(orientation='h', yanchor='bottom', y=1.02, bgcolor='rgba(0,0,0,0)'),
-        margin=dict(t=10, b=10, l=10, r=10),
-        height=420,
-        xaxis2=dict(gridcolor=grid, showgrid=True),
-        xaxis=dict(gridcolor=grid, showgrid=True),
-        yaxis=dict(gridcolor=grid, showgrid=True),
-        yaxis2=dict(gridcolor=grid, showgrid=True, title='Volume'),
-    )
-    return fig
-
-def plot_sentiment_gauge(score, dark_mode):
-    bg = "#0A0E1A" if dark_mode else "#FFFFFF"
-    text_color = "#F0F4FF" if dark_mode else "#0F172A"
-    normalized = (score + 1) / 2 * 100
-    color = "#10B981" if score > 0.05 else ("#EF4444" if score < -0.05 else "#F59E0B")
-
-    fig = go.Figure(go.Indicator(
-        mode="gauge+number+delta",
-        value=normalized,
-        delta={'reference': 50, 'increasing': {'color': "#10B981"}, 'decreasing': {'color': "#EF4444"}},
-        number={'suffix': '%', 'font': {'size': 32, 'color': text_color, 'family': 'JetBrains Mono'}},
-        gauge={
-            'axis': {'range': [0, 100], 'tickfont': {'color': text_color}},
-            'bar': {'color': color, 'thickness': 0.3},
-            'bgcolor': 'rgba(0,0,0,0)',
-            'bordercolor': 'rgba(0,0,0,0)',
-            'steps': [
-                {'range': [0, 33], 'color': '#EF444422'},
-                {'range': [33, 66], 'color': '#F59E0B22'},
-                {'range': [66, 100], 'color': '#10B98122'}
-            ],
-            'threshold': {'line': {'color': color, 'width': 3}, 'value': normalized}
-        }
-    ))
-    fig.update_layout(
-        paper_bgcolor=bg,
-        font=dict(color=text_color, family='Space Grotesk'),
-        height=220, margin=dict(t=20, b=20, l=30, r=30)
-    )
-    return fig
-
-def plot_sentiment_breakdown(pos, neg, neu, dark_mode):
-    bg = "#0A0E1A" if dark_mode else "#FFFFFF"
-    text_color = "#F0F4FF" if dark_mode else "#0F172A"
-    labels = ['Positive', 'Negative', 'Neutral']
-    values = [pos, neg, neu]
-    colors = ['#10B981', '#EF4444', '#F59E0B']
-    fig = go.Figure(go.Pie(
-        labels=labels, values=values, hole=0.65,
-        marker=dict(colors=colors, line=dict(color=bg, width=3)),
-        textfont=dict(color=text_color),
-    ))
-    fig.update_layout(
-        paper_bgcolor=bg,
-        font=dict(color=text_color, family='Space Grotesk'),
-        height=220, margin=dict(t=20, b=20, l=20, r=20),
-        legend=dict(font=dict(color=text_color), bgcolor='rgba(0,0,0,0)', orientation='h', y=-0.1),
-        showlegend=True,
-    )
-    return fig
-
-# ─── Main App ─────────────────────────────────────────────────────────────────
-
+# ── App ───────────────────────────────────────────────────────────────────────
 def main():
-    # Sidebar
     with st.sidebar:
         st.markdown("### ⚙️ Settings")
-        dark_mode = st.toggle("🌙 Dark Mode", value=True)
-        st.markdown("---")
-        st.markdown("### 📈 Chart Period")
-        period_map = {"1 Month": "1mo", "3 Months": "3mo",
-                      "6 Months": "6mo", "1 Year": "1y", "2 Years": "2y"}
-        period_label = st.selectbox("", list(period_map.keys()), index=2)
-        period = period_map[period_label]
+        dark = st.toggle("🌙 Dark Mode", value=True)
         st.markdown("---")
         st.markdown("### ℹ️ About")
         st.markdown("""
-        **SentimentEdge** uses:
-        - 🧠 VADER + TextBlob NLP
-        - 📊 Yahoo Finance data
-        - 📰 Google News RSS
-        - 📐 Technical Indicators
+**SentimentEdge** combines:
+- 🧠 Rule-based NLP sentiment
+- 📊 Yahoo Finance live data
+- 📰 Google News RSS
+- 📐 RSI · MACD · MA indicators
 
-        *For educational purposes only. Not financial advice.*
+*Educational use only. Not financial advice.*
         """)
         st.markdown("---")
-        st.caption("Built for MBA AI & FinTech Project · 2025")
+        st.caption("MBA · AI & FinTech Project · 2025")
 
-    load_css(dark_mode)
+    load_css(dark)
+    bp="#0A0E1A" if dark else "#F0F4FF"
+    pos_c="#10B981"; neg_c="#EF4444"; neu_c="#F59E0B"; acc="#00D4FF"
 
-    # Header
     st.markdown("""
-    <div class="main-header">
-        <div class="badge">AI-Powered Stock Intelligence</div>
+    <div class="top-bar">
+        <div class="chip">AI-Powered · NSE & BSE</div>
         <h1>📈 SentimentEdge</h1>
-        <p>Real-time sentiment analysis & technical insights for Indian stocks (NSE & BSE)</p>
-    </div>
-    """, unsafe_allow_html=True)
+        <p>Real-time sentiment analysis &amp; investment signals for Indian stocks</p>
+    </div>""", unsafe_allow_html=True)
 
-    # Search
-    col_search, col_btn = st.columns([4, 1])
-    with col_search:
-        stock_names = list(INDIAN_STOCKS.keys())
-        selected_stock = st.selectbox(
-            "🔍 Search for a company",
-            stock_names,
-            index=0,
-            help="Type to search from 150+ NSE/BSE listed companies"
-        )
-    with col_btn:
+    col1, col2 = st.columns([4,1])
+    with col1:
+        chosen = st.selectbox("🔍 Select or type a company name", list(INDIAN_STOCKS.keys()))
+    with col2:
         st.markdown("<br>", unsafe_allow_html=True)
-        analyze_btn = st.button("Analyze →", use_container_width=True)
+        go = st.button("Analyse →")
 
-    if selected_stock:
-        ticker = INDIAN_STOCKS[selected_stock]
-        st.markdown(f"**Selected:** `{selected_stock}` · `{ticker}`")
+    if not (go or chosen):
+        return
 
-    if analyze_btn or selected_stock:
-        ticker = INDIAN_STOCKS[selected_stock]
+    ticker = INDIAN_STOCKS[chosen]
 
-        with st.spinner(f"Fetching data for {selected_stock}..."):
-            hist, info = get_stock_data(ticker, period)
-            news_items = get_news_sentiment(selected_stock, ticker)
-            tech = get_technical_indicators(hist)
-            sent_score, sent_label, pos_count, neg_count, neu_count = calculate_overall_sentiment(news_items)
-            verdict, v_color, v_emoji, summary, conf_score, reasons, risks = generate_investment_verdict(
-                sent_score, sent_label, tech, info
-            )
+    with st.spinner("Fetching live market data…"):
+        hist, info = fetch_yahoo(ticker)
+    with st.spinner("Reading latest news…"):
+        articles = fetch_news(chosen, ticker)
 
-        # ── Price Metrics Row ─────────────────────────────────────────────
-        st.markdown("""
-        <div class="section-header">
-            <div class="section-dot"></div>
-            <h3>Live Market Data (Yahoo Finance)</h3>
-        </div>
-        """, unsafe_allow_html=True)
+    tech = calc_technicals(hist) if hist else {}
+    pos_news = [a for a in articles if a["sentiment"]=="positive"]
+    neg_news = [a for a in articles if a["sentiment"]=="negative"]
+    neu_news = [a for a in articles if a["sentiment"]=="neutral"]
+    avg_sent = sum(a["score"] for a in articles)/len(articles) if articles else 0
+    verdict, v_color, v_emoji, conf, reasons, risks = investment_signal(avg_sent, tech, articles)
 
-        if tech and info:
-            cp = tech.get('current_price', 0)
-            prev = info.get('previousClose', cp)
-            change = cp - prev
-            change_pct = (change / prev * 100) if prev else 0
-            delta_class = "positive" if change >= 0 else "negative"
-            delta_sign = "+" if change >= 0 else ""
+    # ── Price strip ──────────────────────────────────────────────────────
+    st.markdown('<div class="sec"><div class="dot"></div><h3>Live Market Data</h3></div>', unsafe_allow_html=True)
+    if info:
+        cp   = info.get("currentPrice", 0) or 0
+        prev = info.get("previousClose", cp) or cp
+        chg  = cp - prev
+        chg_pct = (chg/prev*100) if prev else 0
+        dc   = "pos" if chg>=0 else "neg"
+        sign = "+" if chg>=0 else ""
+        w52h = info.get("fiftyTwoWeekHigh",0) or 0
+        w52l = info.get("fiftyTwoWeekLow",0) or 0
+        exch = info.get("exchange","NSE")
 
-            c1, c2, c3, c4, c5, c6 = st.columns(6)
-            metrics = [
-                (c1, "Current Price", f"₹{cp:,.2f}", f"{delta_sign}{change:.2f} ({delta_sign}{change_pct:.2f}%)", delta_class),
-                (c2, "52W High", f"₹{info.get('fiftyTwoWeekHigh', 'N/A')}", "", ""),
-                (c3, "52W Low", f"₹{info.get('fiftyTwoWeekLow', 'N/A')}", "", ""),
-                (c4, "Market Cap", f"₹{info.get('marketCap', 0)/1e9:.1f}B" if info.get('marketCap') else "N/A", "", ""),
-                (c5, "P/E Ratio", f"{info.get('trailingPE', 'N/A'):.1f}" if isinstance(info.get('trailingPE'), float) else str(info.get('trailingPE', 'N/A')), "", ""),
-                (c6, "Dividend Yield", f"{info.get('dividendYield', 0)*100:.2f}%" if info.get('dividendYield') else "0.00%", "", ""),
-            ]
-            for col, label, val, delta, dc in metrics:
-                with col:
-                    delta_html = f'<div class="metric-delta {dc}">{delta}</div>' if delta else ""
-                    st.markdown(f"""
-                    <div class="metric-card">
-                        <div class="metric-label">{label}</div>
-                        <div class="metric-value">{val}</div>
-                        {delta_html}
-                    </div>
-                    """, unsafe_allow_html=True)
-        else:
-            st.warning("⚠️ Could not fetch live price data. Yahoo Finance may be rate-limiting. Try again in a few seconds.")
+        c1,c2,c3,c4 = st.columns(4)
+        def mcard(col, label, val, delta="", dc_=""):
+            delta_html = f'<div class="mdelta {dc_}">{delta}</div>' if delta else ""
+            col.markdown(f'<div class="card"><div class="mlabel">{label}</div>'
+                         f'<div class="mval">{val}</div>{delta_html}</div>', unsafe_allow_html=True)
+        mcard(c1,"Current Price",f"₹{cp:,.2f}",f"{sign}{chg:.2f} ({sign}{chg_pct:.2f}%)",dc)
+        mcard(c2,"52W High",f"₹{w52h:,.2f}")
+        mcard(c3,"52W Low", f"₹{w52l:,.2f}")
+        mcard(c4,"Exchange", exch)
+    else:
+        st.warning("⚠️ Could not fetch live price. Yahoo Finance may be rate-limiting — wait 30 sec and retry.")
 
-        # ── Chart ─────────────────────────────────────────────────────────
-        st.markdown("""
-        <div class="section-header">
-            <div class="section-dot"></div>
-            <h3>Price Chart & Volume</h3>
-        </div>
-        """, unsafe_allow_html=True)
-        if hist is not None and not hist.empty:
-            st.plotly_chart(plot_candlestick(hist, ticker, dark_mode), use_container_width=True)
-        else:
-            st.info("Chart data unavailable. Please check your internet connection.")
+    # ── Sparkline chart ──────────────────────────────────────────────────
+    if hist:
+        closes = [c for c in hist["close"] if c is not None]
+        chg_overall = closes[-1]-closes[0] if len(closes)>=2 else 0
+        chart_color = pos_c if chg_overall>=0 else neg_c
+        st.markdown('<div class="sec"><div class="dot"></div><h3>6-Month Price Trend</h3></div>', unsafe_allow_html=True)
+        svg = sparkline_svg(closes, chart_color)
+        st.markdown(f'<div class="card">{svg}</div>', unsafe_allow_html=True)
 
-        # ── Technical Indicators ──────────────────────────────────────────
-        st.markdown("""
-        <div class="section-header">
-            <div class="section-dot"></div>
-            <h3>Technical Indicators</h3>
-        </div>
-        """, unsafe_allow_html=True)
-        if tech:
-            t1, t2, t3, t4 = st.columns(4)
-            rsi = tech.get('rsi', 50)
-            rsi_label = "Oversold 🟢" if rsi < 30 else ("Overbought 🔴" if rsi > 70 else "Neutral ⚪")
-            macd = tech.get('macd', 0)
-            macd_label = "Bullish ↑" if macd > 0 else "Bearish ↓"
-            vol_r = tech.get('vol_ratio', 1)
-            vol_label = "High 🔥" if vol_r > 1.5 else ("Low 📉" if vol_r < 0.7 else "Normal")
+        # show first/last date labels
+        dates = hist.get("dates",[])
+        if dates:
+            d1,d2 = st.columns(2)
+            d1.caption(f"📅 {dates[0]}")
+            d2.caption(f"📅 {dates[-1]}" if len(dates)>1 else "")
 
-            with t1:
-                st.markdown(f"""
-                <div class="metric-card">
-                    <div class="metric-label">RSI (14)</div>
-                    <div class="metric-value">{rsi}</div>
-                    <div class="metric-delta">{rsi_label}</div>
-                </div>""", unsafe_allow_html=True)
-            with t2:
-                st.markdown(f"""
-                <div class="metric-card">
-                    <div class="metric-label">MACD</div>
-                    <div class="metric-value">{macd}</div>
-                    <div class="metric-delta">{macd_label}</div>
-                </div>""", unsafe_allow_html=True)
-            with t3:
-                st.markdown(f"""
-                <div class="metric-card">
-                    <div class="metric-label">MA 20-Day</div>
-                    <div class="metric-value">₹{tech.get('ma20', 'N/A')}</div>
-                    <div class="metric-delta">Moving Avg</div>
-                </div>""", unsafe_allow_html=True)
-            with t4:
-                st.markdown(f"""
-                <div class="metric-card">
-                    <div class="metric-label">Volume Ratio</div>
-                    <div class="metric-value">{vol_r}x</div>
-                    <div class="metric-delta">{vol_label}</div>
-                </div>""", unsafe_allow_html=True)
+    # ── Technical indicators ─────────────────────────────────────────────
+    if tech:
+        st.markdown('<div class="sec"><div class="dot"></div><h3>Technical Indicators</h3></div>', unsafe_allow_html=True)
+        t1,t2,t3,t4 = st.columns(4)
+        rsi = tech.get("rsi",50)
+        rsi_lbl = "🟢 Oversold" if rsi<30 else ("🔴 Overbought" if rsi>70 else "⚪ Neutral")
+        macd = tech.get("macd",0)
+        macd_lbl = "↑ Bullish" if macd>0 else "↓ Bearish"
+        vr = tech.get("vol_ratio",1)
+        vr_lbl = "🔥 High" if vr>1.5 else ("📉 Low" if vr<0.7 else "Normal")
+        def tcard(col, label, val, sub):
+            col.markdown(f'<div class="card"><div class="mlabel">{label}</div>'
+                         f'<div class="mval">{val}</div><div class="mdelta neu">{sub}</div></div>',
+                         unsafe_allow_html=True)
+        tcard(t1,"RSI (14)", rsi, rsi_lbl)
+        tcard(t2,"MACD", macd, macd_lbl)
+        tcard(t3,"MA 20-Day", f"₹{tech.get('ma20','—')}", "Moving avg")
+        tcard(t4,"Vol Ratio", f"{vr}x", vr_lbl)
 
-        # ── Sentiment Analysis ────────────────────────────────────────────
-        st.markdown("""
-        <div class="section-header">
-            <div class="section-dot"></div>
-            <h3>Sentiment Analysis</h3>
-        </div>
-        """, unsafe_allow_html=True)
-
-        sa_col, sb_col = st.columns([1, 1])
-        with sa_col:
-            st.markdown('<div class="sentiment-container">', unsafe_allow_html=True)
-            st.markdown("**Overall Sentiment Score**")
-            st.plotly_chart(plot_sentiment_gauge(sent_score, dark_mode), use_container_width=True)
-            sent_class = "positive" if sent_label == "positive" else ("negative" if sent_label == "negative" else "neutral")
-            st.markdown(f'<div class="metric-delta {sent_class}" style="font-size:1rem;text-align:center;">Sentiment: {sent_label.upper()} ({sent_score:+.3f})</div>', unsafe_allow_html=True)
-            st.markdown('</div>', unsafe_allow_html=True)
-
-        with sb_col:
-            st.markdown('<div class="sentiment-container">', unsafe_allow_html=True)
-            st.markdown("**News Breakdown**")
-            total = pos_count + neg_count + neu_count
-            if total > 0:
-                st.plotly_chart(plot_sentiment_breakdown(pos_count, neg_count, neu_count, dark_mode), use_container_width=True)
-                st.markdown(f"<div style='text-align:center;font-size:0.85rem;'>Analyzed <b>{total}</b> recent articles</div>", unsafe_allow_html=True)
-            else:
-                st.info("No news data found for this stock.")
-            st.markdown('</div>', unsafe_allow_html=True)
-
-        # ── Investment Verdict ────────────────────────────────────────────
-        st.markdown("""
-        <div class="section-header">
-            <div class="section-dot"></div>
-            <h3>AI Investment Signal</h3>
-        </div>
-        """, unsafe_allow_html=True)
-
-        v1, v2 = st.columns([1, 2])
-        with v1:
-            verdict_color_hex = "#10B981" if v_color == "positive" else ("#EF4444" if v_color == "negative" else "#F59E0B")
-            st.markdown(f"""
-            <div class="verdict-box">
-                <div style="font-size:2.5rem;">{v_emoji}</div>
-                <div class="verdict-text" style="color:{verdict_color_hex};">{verdict}</div>
-                <div style="margin:12px 0;font-size:0.85rem;color:var(--text-secondary);">Confidence Score</div>
-                <div style="font-size:1.8rem;font-weight:700;font-family:'JetBrains Mono',monospace;">{conf_score:.0f}/100</div>
-                <div style="margin-top:12px;font-size:0.8rem;line-height:1.5;">{summary}</div>
+    # ── Sentiment ────────────────────────────────────────────────────────
+    st.markdown('<div class="sec"><div class="dot"></div><h3>News Sentiment Analysis</h3></div>', unsafe_allow_html=True)
+    s1,s2 = st.columns(2)
+    sent_pct = int((avg_sent+1)/2*100)
+    sent_lbl = "POSITIVE" if avg_sent>0.05 else ("NEGATIVE" if avg_sent<-0.05 else "NEUTRAL")
+    sent_cls  = "pos" if avg_sent>0.05 else ("neg" if avg_sent<-0.05 else "neu")
+    total_arts = len(articles)
+    with s1:
+        st.markdown(f"""
+        <div class="card" style="text-align:center;padding:24px;">
+            <div class="mlabel">Overall Sentiment</div>
+            <div style="font-size:3rem;font-weight:800;font-family:'JetBrains Mono',monospace;
+                margin:10px 0;" class="{sent_cls}">{sent_pct}%</div>
+            <div class="bar-track"><div class="bar-fill" style="width:{sent_pct}%"></div></div>
+            <div class="mdelta {sent_cls}" style="margin-top:8px;font-size:1rem;">{sent_lbl}</div>
+            <div style="color:#94A3B8;font-size:0.78rem;margin-top:6px;">
+                Based on {total_arts} articles</div>
+        </div>""", unsafe_allow_html=True)
+    with s2:
+        pp = len(pos_news); np_ = len(neg_news); np2 = len(neu_news)
+        tot = pp+np_+np2 or 1
+        st.markdown(f"""
+        <div class="card" style="padding:24px;">
+            <div class="mlabel">Article Breakdown</div>
+            <div style="margin-top:14px;">
+                <div style="display:flex;justify-content:space-between;margin-bottom:4px;">
+                    <span class="pos">✅ Positive</span><b class="pos">{pp}</b></div>
+                <div class="bar-track"><div style="height:8px;border-radius:99px;
+                    background:{pos_c};width:{pp/tot*100:.0f}%"></div></div>
+                <div style="display:flex;justify-content:space-between;margin:10px 0 4px;">
+                    <span class="neg">❌ Negative</span><b class="neg">{np_}</b></div>
+                <div class="bar-track"><div style="height:8px;border-radius:99px;
+                    background:{neg_c};width:{np_/tot*100:.0f}%"></div></div>
+                <div style="display:flex;justify-content:space-between;margin:10px 0 4px;">
+                    <span class="neu">⚪ Neutral</span><b class="neu">{np2}</b></div>
+                <div class="bar-track"><div style="height:8px;border-radius:99px;
+                    background:{neu_c};width:{np2/tot*100:.0f}%"></div></div>
             </div>
-            """, unsafe_allow_html=True)
-            st.progress(conf_score / 100)
+        </div>""", unsafe_allow_html=True)
 
-        with v2:
-            if reasons:
-                st.markdown("**✅ Bullish Signals**")
-                for r in reasons:
-                    st.markdown(f"- {r}")
-            if risks:
-                st.markdown("**⚠️ Risk Factors**")
-                for r in risks:
-                    st.markdown(f"- {r}")
-            st.info("⚠️ **Disclaimer:** This is an educational AI tool. Always do your own research (DYOR) before investing. Past performance is not indicative of future results.")
+    # ── Verdict ──────────────────────────────────────────────────────────
+    st.markdown('<div class="sec"><div class="dot"></div><h3>AI Investment Signal</h3></div>', unsafe_allow_html=True)
+    v1,v2 = st.columns([1,2])
+    with v1:
+        bar_w = int(conf)
+        st.markdown(f"""
+        <div class="verdict-box">
+            <div style="font-size:2.8rem;">{v_emoji}</div>
+            <div style="font-size:1.8rem;font-weight:800;color:{v_color};
+                letter-spacing:-0.5px;margin:8px 0;">{verdict}</div>
+            <div class="mlabel">Confidence Score</div>
+            <div style="font-size:2rem;font-weight:700;font-family:'JetBrains Mono',monospace;
+                color:{v_color};">{conf:.0f}<span style="font-size:1rem">/100</span></div>
+            <div class="bar-track" style="margin-top:10px;">
+                <div style="height:8px;border-radius:99px;background:{v_color};
+                    width:{bar_w}%"></div></div>
+        </div>""", unsafe_allow_html=True)
+    with v2:
+        if reasons:
+            st.markdown("**✅ Bullish Signals**")
+            for r in reasons: st.markdown(f"- {r}")
+        if risks:
+            st.markdown("**⚠️ Risk Factors**")
+            for r in risks: st.markdown(f"- {r}")
+        st.info("⚠️ **Disclaimer:** This is an AI-powered educational tool. Always do your own research before investing. This is not financial advice.")
 
-        # ── News Feed ─────────────────────────────────────────────────────
-        st.markdown("""
-        <div class="section-header">
-            <div class="section-dot"></div>
-            <h3>Recent News & Articles</h3>
-        </div>
-        """, unsafe_allow_html=True)
-
-        if news_items:
-            for item in news_items:
-                pill_class = f"pill-{item['sentiment']}"
-                pill_text = item['sentiment'].upper()
-                score_display = f"{item['score']:+.3f}"
-                st.markdown(f"""
-                <div class="news-card">
-                    <div class="news-title">{item['title']}</div>
-                    <div class="news-meta">
-                        <span class="sentiment-pill {pill_class}">{pill_text}</span>
-                        <span>Score: {score_display}</span>
-                        <span>📅 {item['published'][:16] if len(item['published']) > 10 else item['published']}</span>
-                        <span>📰 {item['source']}</span>
-                    </div>
+    # ── News feed ────────────────────────────────────────────────────────
+    st.markdown('<div class="sec"><div class="dot"></div><h3>Recent News</h3></div>', unsafe_allow_html=True)
+    if articles:
+        for a in articles:
+            pill_cls = "pp" if a["sentiment"]=="positive" else ("np" if a["sentiment"]=="negative" else "neup")
+            pill_txt = a["sentiment"].upper()
+            score_txt = f"{a['score']:+.2f}"
+            st.markdown(f"""
+            <div class="news-item">
+                <div class="ntitle">{a['title']}</div>
+                <div class="nmeta">
+                    <span class="pill {pill_cls}">{pill_txt}</span>
+                    <span>Score: {score_txt}</span>
+                    <span>📅 {a['published']}</span>
                 </div>
-                """, unsafe_allow_html=True)
-        else:
-            st.info("📭 No recent news found. Try searching Google News for this company manually.")
-
-        # ── Company Info ──────────────────────────────────────────────────
-        if info:
-            with st.expander("📋 Company Information"):
-                ic1, ic2 = st.columns(2)
-                with ic1:
-                    st.markdown(f"**Sector:** {info.get('sector', 'N/A')}")
-                    st.markdown(f"**Industry:** {info.get('industry', 'N/A')}")
-                    st.markdown(f"**Exchange:** {info.get('exchange', 'N/A')}")
-                    st.markdown(f"**Currency:** {info.get('currency', 'INR')}")
-                with ic2:
-                    st.markdown(f"**EPS:** {info.get('trailingEps', 'N/A')}")
-                    st.markdown(f"**Beta:** {info.get('beta', 'N/A')}")
-                    st.markdown(f"**Avg Volume:** {info.get('averageVolume', 'N/A'):,}" if isinstance(info.get('averageVolume'), int) else f"**Avg Volume:** N/A")
-                    st.markdown(f"**Float Shares:** {info.get('floatShares', 'N/A')}")
-                desc = info.get('longBusinessSummary', '')
-                if desc:
-                    st.markdown("**About the Company:**")
-                    st.markdown(desc[:600] + "..." if len(desc) > 600 else desc)
+            </div>""", unsafe_allow_html=True)
+    else:
+        st.info("📭 No recent news found. Try again in a moment.")
 
 if __name__ == "__main__":
     main()
