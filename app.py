@@ -61,40 +61,56 @@ INDIAN_STOCKS = {
     "Container Corporation": "CONCOR.NS","RBL Bank": "RBLBANK.NS",
 }
 
-# (KEEP EVERYTHING SAME ABOVE)
+# sentiment words
+POSITIVE_WORDS = {"growth","profit","surge","rally","strong","gain","rise","bullish","buy","positive","boost"}
+NEGATIVE_WORDS = {"loss","decline","fall","drop","weak","bearish","risk","crash","fraud","investigation"}
+
+def simple_sentiment(text):
+    words = re.findall(r'\b\w+\b', text.lower())
+    pos = sum(1 for w in words if w in POSITIVE_WORDS)
+    neg = sum(1 for w in words if w in NEGATIVE_WORDS)
+    total = pos + neg
+    if total == 0:
+        return 0.0, "neutral"
+    score = (pos - neg) / total
+    return score, "positive" if score > 0 else "negative"
+
+def fetch_yahoo(ticker):
+    url = f"https://query1.finance.yahoo.com/v8/finance/chart/{ticker}"
+    try:
+        data = json.loads(urllib.request.urlopen(url).read())
+        price = data["chart"]["result"][0]["meta"]["regularMarketPrice"]
+        return price
+    except:
+        return None
+
+def fetch_news(company):
+    query = urllib.parse.quote(company)
+    url = f"https://news.google.com/rss/search?q={query}"
+    articles = []
+    try:
+        raw = urllib.request.urlopen(url).read()
+        root = ET.fromstring(raw)
+        for item in root.findall(".//item")[:5]:
+            title = item.findtext("title")
+            score, label = simple_sentiment(title)
+            articles.append((title, label))
+    except:
+        pass
+    return articles
 
 def main():
-    with st.sidebar:
-        st.markdown("### ⚙️ Settings")
-        dark = st.toggle("🌙 Dark Mode", value=True)
-        st.markdown("---")
-        st.markdown("### ℹ️ About")
-        st.markdown("""
-**SentimentEdge** combines:
-- 🧠 Rule-based NLP sentiment
-- 📊 Yahoo Finance live data
-- 📰 Google News RSS
-- 📐 RSI · MACD · MA indicators
-""")
-
-    load_css(dark)
-
-    st.markdown("""
-    <div class="top-bar">
-        <div class="chip">AI-Powered · NSE & BSE</div>
-        <h1>📊 AI Stock Sentiment Analyzer</h1>
-        <p>Real-time sentiment analysis & investment signals for Indian stocks</p>
-    </div>""", unsafe_allow_html=True)
+    st.title("📊 AI Stock Sentiment Analyzer")
 
     col1, col2 = st.columns([4,1])
 
     with col1:
-        user_input = st.text_input("🔍 Search company (or pick from list)")
-        chosen = st.selectbox("Or select from list", list(INDIAN_STOCKS.keys()))
+        user_input = st.text_input("Search company")
+        chosen = st.selectbox("Or select", list(INDIAN_STOCKS.keys()))
 
     with col2:
         st.markdown("<br>", unsafe_allow_html=True)
-        go = st.button("Analyse →")
+        go = st.button("Analyse")
 
     if not go:
         return
@@ -112,4 +128,16 @@ def main():
 
     ticker = INDIAN_STOCKS[selected_company]
 
-    # (REST OF YOUR ORIGINAL CODE CONTINUES EXACTLY SAME)
+    st.subheader(selected_company)
+
+    price = fetch_yahoo(ticker)
+    if price:
+        st.success(f"Current Price: ₹{price}")
+
+    news = fetch_news(selected_company)
+    st.write("### News Sentiment")
+    for n in news:
+        st.write(f"{n[0]} → {n[1]}")
+
+if __name__ == "__main__":
+    main()
