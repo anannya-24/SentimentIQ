@@ -325,15 +325,24 @@ def main():
         <p>Real-time sentiment analysis &amp; investment signals for Indian stocks</p>
     </div>""", unsafe_allow_html=True)
 
-   col1, col2 = st.columns([4,1])
+  def main():
 
-with col1:
-    user_input = st.text_input("🔍 Search company (or pick from list)")
-    selected_company = st.selectbox("Or select from list", list(INDIAN_STOCKS.keys()))
+    with st.sidebar:
+        ...
+    
+    load_css(dark)
 
-with col2:
-    st.markdown("<br>", unsafe_allow_html=True)
-    go = st.button("Analyse →")
+    st.markdown("""...""", unsafe_allow_html=True)
+
+    col1, col2 = st.columns([4,1])
+
+    with col1:
+        user_input = st.text_input("🔍 Search company (or pick from list)")
+        chosen = st.selectbox("Or select from list", list(INDIAN_STOCKS.keys()))
+
+    with col2:
+        st.markdown("<br>", unsafe_allow_html=True)
+        go = st.button("Analyse →")
 
    if not go:
     return
