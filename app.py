@@ -363,9 +363,10 @@ def main():
         c3.metric("📉 52W Low", f"₹{w52l:,.2f}")
         c4.metric("🏦 Exchange", exch)
         
-        st.markdown("### 📊 5-Year Price Trend")
-        if hist and "close" in hist and "dates" in hist:
-        try:
+st.markdown("### 📊 5-Year Price Trend")
+
+if hist and "close" in hist and "dates" in hist:
+    try:
         prices = hist.get("close", [])
         dates = hist.get("dates", [])
 
@@ -383,9 +384,12 @@ def main():
 
             df.set_index("Date", inplace=True)
 
-            st.line_chart(df)
+            st.line_chart(df, use_container_width=True)
         else:
             st.warning("Not enough data for trend chart.")
+
+    except:
+        st.warning("Could not load trend chart.")
 
     except:
         st.warning("Could not load trend chart.")
