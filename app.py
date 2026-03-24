@@ -382,15 +382,17 @@ def main():
         for r in risks:
             st.write("-", r)
 
-    st.markdown("<br>", unsafe_allow_html=True)
-# ── CANDLESTICK CHART ──
-if hist and all(k in hist for k in ["open","high","low","close","dates"]):
-    try:
-        dates = hist.get("dates", [])
-        opens = hist.get("open", [])
-        highs = hist.get("high", [])
-        lows  = hist.get("low", [])
-        closes= hist.get("close", [])
+        st.markdown("<br>", unsafe_allow_html=True)
+
+        # ── CANDLESTICK CHART ──
+
+        if hist and all(k in hist for k in ["open","high","low","close","dates"]):
+        try:
+            dates = hist.get("dates", [])
+            opens = hist.get("open", [])
+            highs = hist.get("high", [])
+            lows  = hist.get("low", [])
+            closes= hist.get("close", [])
 
         # Ensure equal length
         min_len = min(len(dates), len(opens), len(highs), len(lows), len(closes))
