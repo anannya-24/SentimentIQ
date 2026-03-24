@@ -383,60 +383,6 @@ def main():
             st.write("-", r)
 
            st.markdown("<br>", unsafe_allow_html=True)
-
-    # ── CANDLESTICK CHART ──
-    if hist and all(k in hist for k in ["open","high","low","close","dates"]):
-        try:
-            dates = hist.get("dates", [])
-            opens = hist.get("open", [])
-            highs = hist.get("high", [])
-            lows  = hist.get("low", [])
-            closes= hist.get("close", [])
-
-            # Ensure equal length
-            min_len = min(len(dates), len(opens), len(highs), len(lows), len(closes))
-
-            dates  = dates[-min_len:]
-            opens  = opens[-min_len:]
-            highs  = highs[-min_len:]
-            lows   = lows[-min_len:]
-            closes = closes[-min_len:]
-
-            # Remove None values safely
-            clean_data = [
-                (d,o,h,l,c)
-                for d,o,h,l,c in zip(dates, opens, highs, lows, closes)
-                if None not in (o,h,l,c)
-            ]
-
-            if len(clean_data) > 5:
-                d, o, h, l, c = zip(*clean_data)
-
-                fig = go.Figure(data=[go.Candlestick(
-                    x=list(d),
-                    open=list(o),
-                    high=list(h),
-                    low=list(l),
-                    close=list(c)
-                )])
-
-                fig.update_layout(
-                    title="📈 Price Chart",
-                    xaxis_title="Date",
-                    yaxis_title="Price",
-                    height=400,
-                    xaxis_rangeslider_visible=False
-                )
-
-                st.plotly_chart(fig, use_container_width=True)
-            else:
-                st.warning("Not enough valid data for chart.")
-
-        except Exception as e:
-            st.warning(f"Chart error: {str(e)}")
-
-    st.markdown("<br>", unsafe_allow_html=True)
-
     # ── TECHNICALS ──
     if tech:
         st.markdown("### 📈 Technical Indicators")
