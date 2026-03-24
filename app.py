@@ -434,7 +434,7 @@ if hist and all(k in hist for k in ["open","high","low","close","dates"]):
     # ── NEWS ──
     st.markdown("### 📰 News Sentiment")
 
-    for a in articles:
+   for a in articles:
     icon = "🟢" if a["sentiment"]=="positive" else ("🔴" if a["sentiment"]=="negative" else "🟡")
 
     st.markdown(f"""
