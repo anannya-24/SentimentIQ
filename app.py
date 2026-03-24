@@ -334,16 +334,7 @@ def main():
 
     ticker = INDIAN_STOCKS[chosen]
 
-    tab1, tab2, tab3, tab4 = st.tabs([
-        "📊 Overview", 
-        "📰 News", 
-        "📈 Technicals", 
-        "🤖 AI Verdict"
-    ])
-
-    st.markdown("<br>", unsafe_allow_html=True)
-
-    # Fetch data once
+    # Fetch data
     with st.spinner("Fetching data..."):
         hist, info = fetch_yahoo(ticker)
         articles = fetch_news(chosen, ticker)
@@ -352,33 +343,44 @@ def main():
     avg_sent = sum(a["score"] for a in articles)/len(articles) if articles else 0
     verdict, v_color, v_emoji, conf, reasons, risks = investment_signal(avg_sent, tech, articles)
 
-    # ── TAB 1: OVERVIEW ──
-    with tab1:
-        if info:
-            cp = info.get("currentPrice", 0)
-            prev = info.get("previousClose", cp)
-            chg = cp - prev
-            chg_pct = (chg/prev*100) if prev else 0
-            exch = info.get("exchange","NSE")
-            w52h = info.get("fiftyTwoWeekHigh",0)
-            w52l = info.get("fiftyTwoWeekLow",0)
+    # ── PRICE SECTION ──
+    if info:
+        cp = info.get("currentPrice", 0)
+        prev = info.get("previousClose", cp)
+        chg = cp - prev
+        chg_pct = (chg/prev*100) if prev else 0
 
-            c1,c2,c3,c4 = st.columns(4)
+        exch_raw = info.get("exchange","NSE")
+        exch = "NSE" if "NS" in exch_raw else exch_raw
 
-            c1.metric("💰 Price", f"₹{cp:,.2f}", f"{chg:+.2f} ({chg_pct:+.2f}%)")
-            c2.metric("📈 52W High", f"₹{w52h:,.2f}")
-            c3.metric("📉 52W Low", f"₹{w52l:,.2f}")
-            c4.metric("🏦 Exchange", exch)
+        w52h = info.get("fiftyTwoWeekHigh",0)
+        w52l = info.get("fiftyTwoWeekLow",0)
 
-        # ✅ CANDLESTICK CHART ADDED
-        if hist:
-            try:
+        c1,c2,c3,c4 = st.columns(4)
+
+        c1.metric("💰 Price", f"₹{cp:,.2f}", f"{chg:+.2f} ({chg_pct:+.2f}%)")
+        c2.metric("📈 52W High", f"₹{w52h:,.2f}")
+        c3.metric("📉 52W Low", f"₹{w52l:,.2f}")
+        c4.metric("🏦 Exchange", exch)
+
+    st.markdown("<br>", unsafe_allow_html=True)
+
+    # ── CANDLESTICK CHART ──
+    if hist and all(k in hist for k in ["open","high","low","close","dates"]):
+        try:
+            opens = [v for v in hist["open"] if v is not None]
+            highs = [v for v in hist["high"] if v is not None]
+            lows  = [v for v in hist["low"] if v is not None]
+            closes= [v for v in hist["close"] if v is not None]
+            dates = hist["dates"][-len(closes):]
+
+            if len(closes) > 5:
                 fig = go.Figure(data=[go.Candlestick(
-                    x=hist["dates"],
-                    open=hist["open"],
-                    high=hist["high"],
-                    low=hist["low"],
-                    close=hist["close"]
+                    x=dates,
+                    open=opens,
+                    high=highs,
+                    low=lows,
+                    close=closes
                 )])
 
                 fig.update_layout(
@@ -389,44 +391,53 @@ def main():
                 )
 
                 st.plotly_chart(fig, use_container_width=True)
-            except:
-                st.warning("Chart could not be rendered.")
+            else:
+                st.warning("Not enough data for chart.")
+        except:
+            st.warning("Chart could not be rendered.")
 
-    # ── TAB 2: NEWS ──
-    with tab2:
-        for a in articles:
-            icon = "🟢" if a["sentiment"]=="positive" else ("🔴" if a["sentiment"]=="negative" else "🟡")
-            st.markdown(f"""
+    st.markdown("<br>", unsafe_allow_html=True)
+
+    # ── TECHNICALS ──
+    if tech:
+        st.markdown("### 📈 Technical Indicators")
+        st.write("RSI:", tech.get("rsi"))
+        st.write("MACD:", tech.get("macd"))
+        st.write("MA20:", tech.get("ma20"))
+
+    st.markdown("<br>", unsafe_allow_html=True)
+
+    # ── NEWS ──
+    st.markdown("### 📰 News Sentiment")
+
+    for a in articles:
+        icon = "🟢" if a["sentiment"]=="positive" else ("🔴" if a["sentiment"]=="negative" else "🟡")
+        st.markdown(f"""
 **{icon} {a['title']}**  
-Score: {a['score']:+.2f}
+Score: {a['score']:+.2f} | 📅 {a['published']}
 """)
 
-    # ── TAB 3: TECHNICALS ──
-    with tab3:
-        if tech:
-            st.write("RSI:", tech.get("rsi"))
-            st.write("MACD:", tech.get("macd"))
-            st.write("MA20:", tech.get("ma20"))
+    st.markdown("<br>", unsafe_allow_html=True)
 
-    # ── TAB 4: VERDICT ──
-    with tab4:
-        st.markdown(f"""
+    # ── VERDICT ──
+    st.markdown(f"""
 ## {v_emoji} {verdict}
 ### Confidence: {conf}/100
 """)
-        st.progress(conf/100)
 
-        colA, colB = st.columns(2)
+    st.progress(conf/100)
 
-        with colA:
-            st.markdown("### ✅ Bullish Signals")
-            for r in reasons:
-                st.write("-", r)
+    colA, colB = st.columns(2)
 
-        with colB:
-            st.markdown("### ⚠️ Risks")
-            for r in risks:
-                st.write("-", r)
+    with colA:
+        st.markdown("### ✅ Bullish Signals")
+        for r in reasons:
+            st.write("-", r)
+
+    with colB:
+        st.markdown("### ⚠️ Risks")
+        for r in risks:
+            st.write("-", r)
 
 if __name__ == "__main__":
     main()
