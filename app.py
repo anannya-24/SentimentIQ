@@ -363,63 +363,7 @@ def main():
         c3.metric("📉 52W Low", f"₹{w52l:,.2f}")
         c4.metric("🏦 Exchange", exch)
 
-    st.markdown("<br>", unsafe_allow_html=True)
-
-    # ── CANDLESTICK CHART ──
-    if hist and all(k in hist for k in ["open","high","low","close","dates"]):
-        try:
-            opens = [v for v in hist["open"] if v is not None]
-            highs = [v for v in hist["high"] if v is not None]
-            lows  = [v for v in hist["low"] if v is not None]
-            closes= [v for v in hist["close"] if v is not None]
-            dates = hist["dates"][-len(closes):]
-
-            if len(closes) > 5:
-                fig = go.Figure(data=[go.Candlestick(
-                    x=dates,
-                    open=opens,
-                    high=highs,
-                    low=lows,
-                    close=closes
-                )])
-
-                fig.update_layout(
-                    title="📈 Price Chart",
-                    xaxis_title="Date",
-                    yaxis_title="Price",
-                    height=400
-                )
-
-                st.plotly_chart(fig, use_container_width=True)
-            else:
-                st.warning("Not enough data for chart.")
-        except:
-            st.warning("Chart could not be rendered.")
-
-    st.markdown("<br>", unsafe_allow_html=True)
-
-    # ── TECHNICALS ──
-    if tech:
-        st.markdown("### 📈 Technical Indicators")
-        st.write("RSI:", tech.get("rsi"))
-        st.write("MACD:", tech.get("macd"))
-        st.write("MA20:", tech.get("ma20"))
-
-    st.markdown("<br>", unsafe_allow_html=True)
-
-    # ── NEWS ──
-    st.markdown("### 📰 News Sentiment")
-
-    for a in articles:
-        icon = "🟢" if a["sentiment"]=="positive" else ("🔴" if a["sentiment"]=="negative" else "🟡")
-        st.markdown(f"""
-**{icon} {a['title']}**  
-Score: {a['score']:+.2f} | 📅 {a['published']}
-""")
-
-    st.markdown("<br>", unsafe_allow_html=True)
-
-    # ── VERDICT ──
+         # ── VERDICT ──
     st.markdown(f"""
 ## {v_emoji} {verdict}
 ### Confidence: {conf}/100
@@ -438,6 +382,68 @@ Score: {a['score']:+.2f} | 📅 {a['published']}
         st.markdown("### ⚠️ Risks")
         for r in risks:
             st.write("-", r)
+
+    st.markdown("<br>", unsafe_allow_html=True)
+
+   # ── CANDLESTICK CHART ──
+if hist and all(k in hist for k in ["open","high","low","close","dates"]):
+    try:
+        data = list(zip(
+            hist["dates"],
+            hist["open"],
+            hist["high"],
+            hist["low"],
+            hist["close"]
+        ))
+
+        clean = [d for d in data if None not in d]
+
+        if len(clean) > 5:
+            dates, opens, highs, lows, closes = zip(*clean)
+
+            fig = go.Figure(data=[go.Candlestick(
+                x=list(dates),
+                open=list(opens),
+                high=list(highs),
+                low=list(lows),
+                close=list(closes)
+            )])
+
+            fig.update_layout(
+                title="📈 Price Chart",
+                xaxis_title="Date",
+                yaxis_title="Price",
+                height=400
+            )
+
+            st.plotly_chart(fig, use_container_width=True)
+        else:
+            st.warning("Not enough valid data for chart.")
+    except Exception as e:
+        st.warning("Chart could not be rendered.")
+
+    # ── TECHNICALS ──
+    if tech:
+        st.markdown("### 📈 Technical Indicators")
+        st.write("RSI:", tech.get("rsi"))
+        st.write("MACD:", tech.get("macd"))
+        st.write("MA20:", tech.get("ma20"))
+
+    st.markdown("<br>", unsafe_allow_html=True)
+
+    # ── NEWS ──
+    st.markdown("### 📰 News Sentiment")
+
+    for a in articles:
+    icon = "🟢" if a["sentiment"]=="positive" else ("🔴" if a["sentiment"]=="negative" else "🟡")
+
+    st.markdown(f"""
+**{icon} [{a['title']}]({a['link']})**  
+Score: {a['score']:+.2f} | 📅 {a['published']}
+""")
+
+    st.markdown("<br>", unsafe_allow_html=True)
+
 
 if __name__ == "__main__":
     main()
