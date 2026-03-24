@@ -362,10 +362,11 @@ def main():
         c2.metric("📈 52W High", f"₹{w52h:,.2f}")
         c3.metric("📉 52W Low", f"₹{w52l:,.2f}")
         c4.metric("🏦 Exchange", exch)
+
     # ── VERDICT ──
     st.markdown(f"""
 ## {v_emoji} {verdict}
-### Confidence: {conf}/100
+### Confidence: {conf:.2f}/100
 """)
 
     st.progress(conf/100)
@@ -382,8 +383,8 @@ def main():
         for r in risks:
             st.write("-", r)
 
-           st.markdown("<br>", unsafe_allow_html=True)
-   
+    st.markdown("<br>", unsafe_allow_html=True)
+
     # ── TECHNICALS ──
     if tech:
         st.markdown("### 📈 Technical Indicators")
